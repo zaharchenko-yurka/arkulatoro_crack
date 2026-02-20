@@ -1,0 +1,225 @@
+ROOMBEGIN
+RoomName кімн. №1
+UID1 05B612EC-BF8C-4401-BFBB-50B94C4A636B
+Doc1CID 241009033271
+RoomHeight 0
+Date1 -1
+Date2 -1
+RoomWWidth 5
+NumOrCharGgo False
+WITHOUT_POLOTNO False
+WITHOUT_HARPOON False
+POINTS
+AnglePoint 3324.15, 5378.55
+AnglePoint 7974.11, 5378.55
+AnglePoint 7902.24, 509.02
+AnglePoint 3302.28, 488.54
+POINTSEND
+OTRARCS
+WallWid3 0, 0
+WallWid3 1, 0
+WallWid3 2, 0
+WallWid3 3, 0
+OTRARCSEND
+BLUEPOINTS
+BLUEPOINTSEND
+otrlist_
+NPLine
+PoBeg 3324.15, 5378.55
+PoEnd 7974.11, 5378.55
+Wid1 100
+PoNumber2 1
+IdntBeg A
+IdntEnd D
+IdntBeg2 
+IdntEnd2 
+FixedBeg True
+END
+NPLine
+PoBeg 7974.11, 5378.55
+PoEnd 7902.24, 509.02
+Wid1 100
+PoNumber1 1
+PoNumber2 2
+JValue 4870.1
+IdntBeg D
+IdntEnd C
+IdntBeg2 
+IdntEnd2 
+FixedBeg True
+END
+NPLine
+PoBeg 7902.24, 509.02
+PoEnd 3302.28, 488.54
+Wid1 100
+PoNumber1 2
+PoNumber2 3
+JValue 4600
+IdntBeg C
+IdntEnd B
+IdntBeg2 
+IdntEnd2 
+FixedBeg True
+END
+NPLine
+PoBeg 3302.28, 488.54
+PoEnd 3324.15, 5378.55
+Wid1 100
+PoNumber1 3
+IdntBeg B
+IdntEnd A
+IdntBeg2 
+IdntEnd2 
+FixedBeg True
+END
+otrlist_end
+dim_lines_
+dim_otr
+d_geom1 D
+d_geom2 B
+jvalue 6763
+end
+dim_lines_end
+StartPointA -1
+VIREZS
+VIREZSEND
+GlobPlanX 0
+GlobPlanY 0
+ZONESLIST
+OneZone
+ZoneGUI1 FC3F858C-30E6-40CF-BF09-FEA15E021AC1
+LevlVal 0
+TprTipe 0
+det_number 0
+Otkos 0
+ZoneColor 13041663
+ZoneLine
+PoBeg 3302.28, 488.54
+PoEnd 3324.15, 5378.55
+Wid1 -10
+TipeOtr 1
+END
+ZoneLine
+PoBeg 3324.15, 5378.55
+PoEnd 7974.11, 5378.55
+Wid1 -10
+TipeOtr 1
+END
+ZoneLine
+PoBeg 7974.11, 5378.55
+PoEnd 7902.24, 509.02
+Wid1 -10
+TipeOtr 1
+END
+ZoneLine
+PoBeg 7902.24, 509.02
+PoEnd 3302.28, 488.54
+Wid1 -10
+TipeOtr 1
+END
+ZoneDepth 0
+ZoneDepth2 0
+Dep_X1 -1
+Dep_Y1 -1
+Dep_Alp 0
+DepthBase0 0
+PPGrpID 0
+PPLevlNum 0
+ZoneColor 13041663
+Zcol_num 0
+Zrow_num 0
+HandMade False
+OneZoneEND
+ZONESLISTEND
+ALLDIMLINES
+ALLDIMLINESEND
+ESTIME_BEGIN
+RecordBegin
+Number-/-0
+GrpID-/-1
+Tipe-/-1
+ART_NO-/-MR008
+Name-/-Лаковая белая 4,50 м_303 4500мм
+Units-/-м.кв.
+Kol-/-22.57
+Cena-/-2.5
+EstiGrp-/-0
+GroupIndx-/-0
+PriorIndx-/-0
+DColor-/-0
+Check-/-False
+WidA-/--1
+LenB-/--1
+Rapport-/-0
+Cena2-/-0
+Cena3-/-0
+UseEstim-/-True
+UseSclad-/-True
+RecordEnd
+RecordBegin
+Number-/-0
+GrpID-/-3
+Tipe-/-1
+ART_NO-/-MR1
+Name-/-Обробка кутів
+Units-/-шт.
+Kol-/-4
+Cena-/-0.4
+EstiGrp-/-0
+GroupIndx-/-0
+PriorIndx-/-0
+DColor-/-0
+Check-/-False
+WidA-/--1
+LenB-/--1
+Rapport-/-0
+Cena2-/-0
+Cena3-/-0
+UseEstim-/-True
+UseSclad-/-True
+RecordEnd
+ESTIME_END
+MontageGPrs 0
+ReduceGPrs 0
+GValsBegin
+A 22.57
+B 19.1
+C 19.341
+D 19.01
+E 4
+F 0
+I 0
+J 0
+G 17.49
+L 0
+M 0
+O 0
+P 0
+Q 0
+R 0
+GValsEnd
+GValSclad 0
+UseSclad False
+UpackID 0
+MontID 0
+RulonID 
+CWid1 4671.82212512005
+CHei1 4890.01503384588
+CWid2 4298.07635511045
+CHei2 4498.81383113821
+PARAMS2_BEGIN
+FirstLineWidth 4500
+FullLineWidth 4500
+StretchParamPer 8
+StretchParamPer_2 0
+ColorLineName 303
+LineLineName Лаковая белая 4.50 м
+ArtNoName MR008
+ParLevel15 0
+AlgnButton_1 0
+AlgnButton_2 0
+AlgnButton_3 1
+FotoFileName 
+FotoScale 0
+PARAMS2_END
+ROOMEND

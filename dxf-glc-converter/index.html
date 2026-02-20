@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DXF to GLC Converter</title>
+  <link rel="stylesheet" href="./style.css">
+</head>
+<body>
+  <main class="app">
+    <section class="panel controls">
+      <h1>DXF to GLC Converter</h1>
+      <label class="field">
+        <span>DXF file</span>
+        <input id="dxfFile" type="file" accept=".dxf,text/plain">
+      </label>
+      <label class="field">
+        <span>Unit override</span>
+        <select id="unitOverride">
+          <option value="auto">Auto (from $INSUNITS)</option>
+          <option value="mm">mm</option>
+          <option value="cm">cm</option>
+          <option value="m">m</option>
+        </select>
+      </label>
+      <div class="actions">
+        <button id="convertBtn" type="button">Convert</button>
+        <button id="downloadBtn" type="button" disabled>Download GLC</button>
+      </div>
+      <div id="stats" class="stats">No file loaded.</div>
+      <div id="errorPanel" class="error-panel"></div>
+      <pre id="debugLog" class="debug-log"></pre>
+    </section>
+
+    <section class="panel preview">
+      <h2>SVG Preview</h2>
+      <div class="svg-wrap">
+        <svg id="previewSvg" xmlns="http://www.w3.org/2000/svg" aria-label="Geometry preview"></svg>
+      </div>
+    </section>
+  </main>
+
+  <script type="module" src="./app.js"></script>
+</body>
+</html>

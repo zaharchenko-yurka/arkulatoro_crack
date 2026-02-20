@@ -1,0 +1,517 @@
+ROOMBEGIN
+RoomName кімн. №3
+UID1 953C8771-99CA-4D40-A98E-FA85C774D591
+Doc1CID 241009033273 //штрихкод
+RoomHeight 0
+Date1 -1
+Date2 -1
+RoomWWidth 5
+NumOrCharGgo False
+WITHOUT_POLOTNO False // без полотна
+WITHOUT_HARPOON False // без гарпуна
+POINTS // координати кутів
+AnglePoint 7556.56, 5599.32
+AnglePoint 8386.21, 5623.1
+AnglePoint 7487.76, 2624.89
+AnglePoint 7799.05, 1331.87
+AnglePoint 6572.13, 903.08
+AnglePoint 5370.1, 1111.71
+AnglePoint 4258.89, 517.74
+AnglePoint 4258.89, 4047.74
+AnglePoint 3558.89, 4047.74
+AnglePoint 3558.89, 5697.74
+AnglePoint 7538.89, 5697.74
+POINTSEND
+OTRARCS // дуги
+WallWid3 0, 0
+OtrArcHei 1, -408 // висота дуги, мм (від'ємна - напрямок вигину)
+WallWid3 1, 0
+OtrArcHei 2, 100.171122878212
+WallWid3 2, 0
+OtrArcHei 3, 381.263736646932
+WallWid3 3, 0
+OtrArcHei 4, -205
+WallWid3 4, 0
+OtrArcHei 5, -49
+WallWid3 5, 0
+WallWid3 6, 0
+WallWid3 7, 0
+WallWid3 8, 0
+WallWid3 9, 0
+WallWid3 10, 0
+OTRARCSEND
+BLUEPOINTS
+BluePoR 1, 0
+BluePoR 2, 0
+BluePoR 3, 0
+BluePoR 4, 0
+BluePoR 5, 0
+BLUEPOINTSEND
+otrlist_ // початок переліку стін
+NPLine // початок стіни
+PoBeg 7556.56, 5599.32 // координати кутів
+PoEnd 8386.21, 5623.1
+Wid1 100
+PoNumber2 1
+JValue 830 // довжина, мм
+IdntBeg J // назва початкового кута на кресленні
+IdntEnd I // назва кінцевого
+IdntBeg2 
+IdntEnd2 
+FixedBeg False // чи зафіксовано початковий кут
+END //кінець стіни
+NPLine
+PoBeg 8386.21, 5623.1
+PoEnd 7487.76, 2624.89
+ArcPoint 7546.16, 4241.12 // можливо, координати середини дуги
+ArcHei -408 // вигин дуги, мм
+Wid1 100
+PoNumber1 1
+PoNumber2 2
+JValue 3129.9 // довжина прямої, мм
+IdntBeg I
+IdntEnd H
+IdntBeg2 
+IdntEnd2 
+FixedBeg True
+END
+NPLine
+PoBeg 7487.76, 2624.89
+PoEnd 7799.05, 1331.87
+ArcPoint 7740.79, 2001.83
+ArcHei 100.17
+Wid1 100
+PoNumber1 2
+PoNumber2 3
+JValue 1329.9
+IdntBeg H
+IdntEnd G
+IdntBeg2 
+IdntEnd2 
+FixedBeg False
+END
+NPLine
+PoBeg 7799.05, 1331.87
+PoEnd 6572.13, 903.08
+ArcPoint 7311.37, 757.55
+ArcHei 381.26
+Wid1 100
+PoNumber1 3
+PoNumber2 4
+JValue 1300
+IdntBeg G
+IdntEnd F
+IdntBeg2 
+IdntEnd2 
+FixedBeg False
+END
+NPLine
+PoBeg 6572.13, 903.08
+PoEnd 5370.1, 1111.71
+ArcPoint 6006.17, 1209.38
+ArcHei -205
+Wid1 100
+PoNumber1 4
+PoNumber2 5
+JValue 1220
+IdntBeg F
+IdntEnd E
+IdntBeg2 
+IdntEnd2 
+FixedBeg True
+END
+NPLine
+PoBeg 5370.1, 1111.71
+PoEnd 4258.89, 517.74
+ArcPoint 4791.39, 857.94
+ArcHei -49
+Wid1 100
+PoNumber1 5
+PoNumber2 6
+JValue 1260
+IdntBeg E
+IdntEnd D
+IdntBeg2 
+IdntEnd2 
+FixedBeg True
+END
+NPLine
+PoBeg 4258.89, 517.74
+PoEnd 4258.89, 4047.74
+Wid1 100
+PoNumber1 6
+PoNumber2 7
+JValue 3530
+IdntBeg D
+IdntEnd C
+IdntBeg2 
+IdntEnd2 
+FixedBeg True
+END
+NPLine
+PoBeg 4258.89, 4047.74
+PoEnd 3558.89, 4047.74
+Wid1 100
+PoNumber1 7
+PoNumber2 8
+JValue 700
+IdntBeg C
+IdntEnd B
+IdntBeg2 
+IdntEnd2 
+FixedBeg False
+END
+NPLine
+PoBeg 3558.89, 4047.74
+PoEnd 3558.89, 5697.74
+Wid1 100
+PoNumber1 8
+PoNumber2 9
+JValue 1650
+IdntBeg B
+IdntEnd A
+IdntBeg2 
+IdntEnd2 
+FixedBeg False
+END
+NPLine
+PoBeg 3558.89, 5697.74
+PoEnd 7538.89, 5697.74
+Wid1 100
+PoNumber1 9
+PoNumber2 10
+JValue 3980
+IdntBeg A
+IdntEnd K
+IdntBeg2 
+IdntEnd2 
+FixedBeg False
+END
+NPLine
+PoBeg 7538.89, 5697.74
+PoEnd 7556.56, 5599.32
+Wid1 100
+PoNumber1 10
+JValue 100
+IdntBeg K
+IdntEnd J
+IdntBeg2 
+IdntEnd2 
+FixedBeg False
+END
+otrlist_end // кінець переліку стін
+dim_lines_ // початок діагоналей
+dim_otr
+d_geom1 A
+d_geom2 H
+jvalue 0
+end
+dim_otr
+d_geom1 C
+d_geom2 G
+jvalue 0
+end
+dim_otr
+d_geom1 J
+d_geom2 F
+jvalue 0
+end
+dim_otr
+d_geom1 J
+d_geom2 E
+jvalue 0
+end
+dim_otr
+d_geom1 J
+d_geom2 D
+jvalue 0
+end
+dim_otr
+d_geom1 J
+d_geom2 B
+jvalue 0
+end
+dim_otr
+d_geom1 J
+d_geom2 A
+jvalue 0
+end
+dim_otr
+d_geom1 C
+d_geom2 I
+jvalue 0
+end
+dim_otr
+d_geom1 C
+d_geom2 K
+jvalue 0
+end
+dim_otr
+d_geom1 A
+d_geom2 C
+jvalue 0
+end
+dim_otr
+d_geom1 C
+d_geom2 H
+jvalue 0
+end
+dim_otr
+d_geom1 C
+d_geom2 F
+jvalue 0
+end
+dim_otr
+d_geom1 C
+d_geom2 E
+jvalue 0
+end
+dim_lines_end // кінець діагоналей
+StartPointA 9
+VIREZS // початок вирізів
+ONEVIREZ
+LevlVal 0
+TprTipe 0
+det_number 0
+Otkos 0
+ZoneColor 16750950
+VirezLine
+PoBeg 5896.43, 3989.41
+PoEnd 5896.43, 4489.41
+PoNumber1 11
+PoNumber2 12
+END
+VirezLine
+PoBeg 5896.43, 4489.41
+PoEnd 6396.43, 4489.41
+PoNumber1 12
+PoNumber2 13
+END
+VirezLine
+PoBeg 6396.43, 4489.41
+PoEnd 6396.43, 3989.41
+PoNumber1 13
+PoNumber2 14
+END
+VirezLine
+PoBeg 6396.43, 3989.41
+PoEnd 5896.43, 3989.41
+PoNumber1 14
+PoNumber2 11
+END
+ONEVIREZEND
+VIREZSEND // кінець вирізів
+GlobPlanX 0
+GlobPlanY 0
+ZONESLIST
+OneZone
+ZoneGUI1 6E802EDB-4C87-4195-9E5E-C74F630CB579
+LevlVal 0
+TprTipe 0
+det_number 0
+Otkos 0
+ZoneColor 13041663
+ZoneLine
+PoBeg 4258.89, 517.74
+PoEnd 4258.89, 4047.74
+Wid1 -10
+TipeOtr 1
+END
+ZoneLine
+PoBeg 4258.89, 4047.74
+PoEnd 3558.89, 4047.74
+Wid1 -10
+TipeOtr 1
+END
+ZoneLine
+PoBeg 3558.89, 4047.74
+PoEnd 3558.89, 5697.74
+Wid1 -10
+TipeOtr 1
+END
+ZoneLine
+PoBeg 3558.89, 5697.74
+PoEnd 7538.89, 5697.74
+Wid1 -10
+TipeOtr 1
+END
+ZoneLine
+PoBeg 7538.89, 5697.74
+PoEnd 7556.56, 5599.32
+Wid1 -10
+TipeOtr 1
+END
+ZoneLine
+PoBeg 7556.56, 5599.32
+PoEnd 8386.21, 5623.1
+Wid1 -10
+TipeOtr 1
+END
+ZoneLine
+PoBeg 8386.21, 5623.1
+PoEnd 7487.76, 2624.89
+ArcPoint 7546.16, 4241.12
+ArcHei -408
+Wid1 -10
+TipeOtr 1
+END
+ZoneLine
+PoBeg 7487.76, 2624.89
+PoEnd 7799.05, 1331.87
+ArcPoint 7740.79, 2001.83
+ArcHei 100.17
+Wid1 -10
+TipeOtr 1
+END
+ZoneLine
+PoBeg 7799.05, 1331.87
+PoEnd 6572.13, 903.08
+ArcPoint 7311.37, 757.55
+ArcHei 381.26
+Wid1 -10
+TipeOtr 1
+END
+ZoneLine
+PoBeg 6572.13, 903.08
+PoEnd 5370.1, 1111.71
+ArcPoint 6006.17, 1209.38
+ArcHei -205
+Wid1 -10
+TipeOtr 1
+END
+ZoneLine
+PoBeg 5370.1, 1111.71
+PoEnd 4258.89, 517.74
+ArcPoint 4791.39, 857.94
+ArcHei -49
+Wid1 -10
+TipeOtr 1
+END
+ZoneDepth 0
+ZoneDepth2 0
+Dep_X1 -1
+Dep_Y1 -1
+Dep_Alp 0
+DepthBase0 0
+PPGrpID 0
+PPLevlNum 0
+ZoneColor 13041663
+Zcol_num 0
+Zrow_num 0
+HandMade False
+OneZoneEND
+ZONESLISTEND
+ALLDIMLINES
+ALLDIMLINESEND
+ESTIME_BEGIN // початок запису в кошторисі
+RecordBegin
+Number-/-0
+GrpID-/-1
+Tipe-/-1
+ART_NO-/-MR016 // шифр полотна в БД
+Name-/-Лаковая цветная 5,0 м_307 5000мм // назва полотна
+Units-/-м.кв. // одиниці виміру
+Kol-/-17.38 // площа м.кв.
+Cena-/-2.7 // ціна $/м.кв.
+EstiGrp-/-0
+GroupIndx-/-0
+PriorIndx-/-0
+DColor-/-0
+Check-/-False
+WidA-/--1
+LenB-/--1
+Rapport-/-0
+Cena2-/-0
+Cena3-/-0
+UseEstim-/-True
+UseSclad-/-True
+RecordEnd
+RecordBegin
+Number-/-0
+GrpID-/-3
+Tipe-/-1
+ART_NO-/-MR1 //шифр расходника в БД
+Name-/-Обробка кутів
+Units-/-шт.
+Kol-/-7
+Cena-/-0.4
+EstiGrp-/-0
+GroupIndx-/-0
+PriorIndx-/-0
+DColor-/-0
+Check-/-False
+WidA-/--1
+LenB-/--1
+Rapport-/-0
+Cena2-/-0
+Cena3-/-0
+UseEstim-/-True
+UseSclad-/-True
+RecordEnd
+RecordBegin
+Number-/-0
+GrpID-/-3
+Tipe-/-1
+ART_NO-/-MR2
+Name-/-Криволінійність
+Units-/-м.п
+Kol-/-8.775
+Cena-/-1.75
+EstiGrp-/-0
+GroupIndx-/-0
+PriorIndx-/-0
+DColor-/-0
+Check-/-False
+WidA-/--1
+LenB-/--1
+Rapport-/-0
+Cena2-/-0
+Cena3-/-0
+UseEstim-/-True
+UseSclad-/-True
+RecordEnd
+ESTIME_END // кінець кошторису
+MontageGPrs 0
+ReduceGPrs 0
+GValsBegin
+A 17.38 // площа, м.кв.
+B 14.71 //площа полотна, м.кв.
+C 22.205 // витрата полотна, м.кв.
+D 19.565 // периметр, м.
+E 7 // внутрішні кути, шт.
+F 4 // зовнішні кути, шт.
+I 5 // кількість криволінійних ділянок, шт.
+J 8.775 // довжина криволінійності, м.
+G 18 // витрата гарпуна, м.
+L 3.43 // довжина швів, м. - усаджений шов в режимі автоматичної нарізки на смуги
+M 0.25 // внутрішні вирізи, м.кв.
+O 2 // внутрішні вирізи, м.п.
+P 4.25 // ручний шов, м. - усаджений шов в ручному режимі, намальований вручну
+Q 0
+R 0
+GValsEnd
+GValSclad 0
+UseSclad False
+UpackID 0
+MontID 0
+RulonID 
+CWid1 4827.32903920211 //ширина, м
+CHei1 5180 // висота, м
+CWid2 4441.14271606594 // усаджена ширина, м
+CHei2 4765.6 // усаджена висота, м
+PARAMS2_BEGIN
+FirstLineWidth 5000 // ширина першої полоси, м
+FullLineWidth 5000 // ширина полотна, м
+StretchParamPer 8 //розтягнення по ширині (X), %
+StretchParamPer_2 8 //розтягнення по висоті (Y), %
+ColorLineName 307 // колір полотна
+LineLineName Лаковая цветная 5.0 м // назва полотна
+ArtNoName MR016 // шифр полотна в БД
+ParLevel15 0
+AlgnButton_1 0
+AlgnButton_2 0
+AlgnButton_3 1
+FotoFileName 
+FotoScale 0
+PARAMS2_END
+ROOMEND
