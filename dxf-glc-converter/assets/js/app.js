@@ -63,16 +63,19 @@ function convert() {
 
   const errors = [...parsed.errors];
   const warnings = [...parsed.warnings, ...contourData.warnings];
-  if (contourData.openChains.length > 0) {
-    errors.push("Open contours are not allowed for GLC export.");
-  }
   if (contourData.contours.length === 0) {
-    errors.push("No closed contours detected.");
+    errors.push("No valid closed ceiling contours detected.");
   }
 
   const contourCount = contourData.contours.length;
   const perimeterM = formatPerimeter(contourData.contours);
-  stats.textContent = `Contours: ${contourCount} | Total perimeter: ${perimeterM} m`;
+  stats.textContent =
+    `Total segments parsed: ${parsed.debug.parsedSegments} | ` +
+    `Segments skipped: ${parsed.debug.skippedSegments} | ` +
+    `Snapped vertices: ${contourData.debug.snappedVertexPairs} | ` +
+    `Discarded open groups: ${contourData.debug.discardedOpenGroups} | ` +
+    `Final closed contours: ${contourCount} | ` +
+    `Total perimeter: ${perimeterM} m`;
 
   setMessages(errors, warnings);
 

@@ -1,4 +1,5 @@
 const DEFAULT_EPSILON = 0.5;
+const SNAP_TOLERANCE_MM = 0.1;
 
 function distance(a, b) {
   return Math.hypot(a.x - b.x, a.y - b.y);
@@ -75,6 +76,144 @@ function addOrGetNode(nodes, point, epsilon) {
   return nodes.length - 1;
 }
 
+function roundCoord(v) {
+  return Number(v.toFixed(6));
+}
+
+function lexicographicPointKey(a, b) {
+  if (a.x < b.x) {
+    return [a, b];
+  }
+  if (a.x > b.x) {
+    return [b, a];
+  }
+  if (a.y <= b.y) {
+    return [a, b];
+  }
+  return [b, a];
+}
+
+function segmentDuplicateKey(seg) {
+  const [p1, p2] = lexicographicPointKey(seg.start, seg.end);
+  const header =
+    `${seg.type}|${roundCoord(p1.x)},${roundCoord(p1.y)}|${roundCoord(p2.x)},${roundCoord(p2.y)}`;
+  if (seg.type === "line") {
+    return header;
+  }
+  return `${header}|${roundCoord(seg.center.x)},${roundCoord(seg.center.y)}|${roundCoord(seg.radius)}|${roundCoord(Math.abs(seg.sweepDeg))}`;
+}
+
+function snapSegments(inputSegments, tolerance) {
+  const segments = inputSegments.map((seg) => ({
+    ...seg,
+    start: { ...seg.start },
+    end: { ...seg.end },
+    center: seg.center ? { ...seg.center } : seg.center
+  }));
+
+  const vertices = [];
+  segments.forEach((seg, segIdx) => {
+    vertices.push({ segIdx, pointKey: "start", point: seg.start });
+    vertices.push({ segIdx, pointKey: "end", point: seg.end });
+  });
+  if (vertices.length <= 1) {
+    return { segments, snappedVertexPairs: 0 };
+  }
+
+  // Sorted sweep on X keeps pair checks bounded for typical drawing sizes.
+  const sorted = vertices
+    .map((v, idx) => ({
+      ...v,
+      idx,
+      x: v.point.x,
+      y: v.point.y
+    }))
+    .sort((a, b) => (a.x - b.x) || (a.y - b.y));
+
+  const parent = vertices.map((_, i) => i);
+  const rank = vertices.map(() => 0);
+  const find = (i) => {
+    let p = i;
+    while (parent[p] !== p) {
+      parent[p] = parent[parent[p]];
+      p = parent[p];
+    }
+    return p;
+  };
+  const union = (a, b) => {
+    const ra = find(a);
+    const rb = find(b);
+    if (ra === rb) {
+      return false;
+    }
+    if (rank[ra] < rank[rb]) {
+      parent[ra] = rb;
+    } else if (rank[ra] > rank[rb]) {
+      parent[rb] = ra;
+    } else {
+      parent[rb] = ra;
+      rank[ra] += 1;
+    }
+    return true;
+  };
+
+  let snappedVertexPairs = 0;
+  for (let i = 0; i < sorted.length; i += 1) {
+    const a = sorted[i];
+    for (let j = i + 1; j < sorted.length; j += 1) {
+      const b = sorted[j];
+      if (b.x - a.x > tolerance) {
+        break;
+      }
+      if (Math.abs(b.y - a.y) > tolerance) {
+        continue;
+      }
+      if (Math.hypot(a.x - b.x, a.y - b.y) <= tolerance) {
+        if (union(a.idx, b.idx)) {
+          snappedVertexPairs += 1;
+        }
+      }
+    }
+  }
+
+  const accum = new Map();
+  vertices.forEach((v, idx) => {
+    const root = find(idx);
+    const bucket = accum.get(root) || { sx: 0, sy: 0, n: 0 };
+    bucket.sx += v.point.x;
+    bucket.sy += v.point.y;
+    bucket.n += 1;
+    accum.set(root, bucket);
+  });
+  const centroid = new Map();
+  accum.forEach((bucket, root) => {
+    centroid.set(root, {
+      x: bucket.sx / bucket.n,
+      y: bucket.sy / bucket.n
+    });
+  });
+
+  vertices.forEach((v, idx) => {
+    const c = centroid.get(find(idx));
+    segments[v.segIdx][v.pointKey] = { x: c.x, y: c.y };
+  });
+
+  const deduped = [];
+  const seen = new Set();
+  segments.forEach((seg) => {
+    const key = segmentDuplicateKey(seg);
+    if (!seen.has(key)) {
+      seen.add(key);
+      deduped.push(seg);
+    }
+  });
+
+  return {
+    segments: deduped,
+    snappedVertexPairs
+  };
+}
+
 function orientEdge(edge, fromNode) {
   if (edge.startNode === fromNode) {
     return edge.base;
@@ -137,8 +276,9 @@ export function reverseContourSegments(segments) {
 }
 
 export function buildContours(inputSegments, epsilon = DEFAULT_EPSILON) {
+  const snapped = snapSegments(inputSegments, SNAP_TOLERANCE_MM);
   const nodes = [];
-  const edges = inputSegments.map((base, idx) => {
+  const edges = snapped.segments.map((base, idx) => {
     const startNode = addOrGetNode(nodes, base.start, epsilon);
     const endNode = addOrGetNode(nodes, base.end, epsilon);
     return { id: idx, base, startNode, endNode };
@@ -157,84 +297,136 @@ export function buildContours(inputSegments, epsilon = DEFAULT_EPSILON) {
   const degree = new Map();
   adjacency.forEach((list, nodeId) => degree.set(nodeId, list.length));
 
-  const openEdgeIds = new Set();
-  edges.forEach((e) => {
-    if ((degree.get(e.startNode) || 0) !== 2 || (degree.get(e.endNode) || 0) !== 2) {
-      openEdgeIds.add(e.id);
+  const edgeById = new Map(edges.map((e) => [e.id, e]));
+  const edgeComponentSeen = new Set();
+  const edgeComponents = [];
+  edges.forEach((seed) => {
+    if (edgeComponentSeen.has(seed.id)) {
+      return;
     }
+    const queue = [seed.id];
+    const component = [];
+    edgeComponentSeen.add(seed.id);
+    while (queue.length > 0) {
+      const edgeId = queue.shift();
+      component.push(edgeId);
+      const e = edgeById.get(edgeId);
+      [e.startNode, e.endNode].forEach((nodeId) => {
+        (adjacency.get(nodeId) || []).forEach((nextId) => {
+          if (!edgeComponentSeen.has(nextId)) {
+            edgeComponentSeen.add(nextId);
+            queue.push(nextId);
+          }
+        });
+      });
+    }
+    edgeComponents.push(component);
   });
 
-  const unused = new Set(edges.map((e) => e.id));
   const contours = [];
   const openChains = [];
+  let discardedOpenGroups = 0;
+  let autoClosedContours = 0;
 
-  while (unused.size > 0) {
-    const seedId = unused.values().next().value;
-    const seed = edges[seedId];
-    const chain = [];
-    const startNode = seed.startNode;
-    let currentNode = seed.startNode;
-    let currentEdge = seed;
-    let guard = 0;
-    let closed = false;
+  edgeComponents.forEach((componentEdgeIds) => {
+    const componentUnused = new Set(componentEdgeIds);
+    const componentContours = [];
+    const componentOpenChains = [];
 
-    while (guard < edges.length + 5) {
-      guard += 1;
-      if (!unused.has(currentEdge.id)) {
-        break;
+    // Build chains only inside a connected geometry group (macro-element candidate).
+    while (componentUnused.size > 0) {
+      const seedId = componentUnused.values().next().value;
+      const seed = edgeById.get(seedId);
+      const chain = [];
+      const startNode = seed.startNode;
+      let currentNode = seed.startNode;
+      let currentEdge = seed;
+      let guard = 0;
+      let closed = false;
+
+      while (guard < edges.length + 5) {
+        guard += 1;
+        if (!componentUnused.has(currentEdge.id)) {
+          break;
+        }
+        componentUnused.delete(currentEdge.id);
+        const oriented = orientEdge(currentEdge, currentNode);
+        chain.push(oriented);
+        currentNode = currentEdge.startNode === currentNode ? currentEdge.endNode : currentEdge.startNode;
+        if (currentNode === startNode) {
+          closed = true;
+          break;
+        }
+        const nextCandidates = (adjacency.get(currentNode) || []).filter((id) => componentUnused.has(id));
+        if (nextCandidates.length === 0) {
+          break;
+        }
+        currentEdge = edgeById.get(nextCandidates[0]);
       }
-      unused.delete(currentEdge.id);
-      const oriented = orientEdge(currentEdge, currentNode);
-      chain.push(oriented);
-      currentNode = currentEdge.startNode === currentNode ? currentEdge.endNode : currentEdge.startNode;
-      if (currentNode === startNode) {
-        closed = true;
-        break;
+
+      // Gap closure for almost-closed chains after snapping.
+      if (!closed && chain.length > 1) {
+        const first = chain[0].start;
+        const last = chain[chain.length - 1].end;
+        if (distance(first, last) <= epsilon) {
+          const lastSeg = chain[chain.length - 1];
+          chain[chain.length - 1] = {
+            ...lastSeg,
+            end: { ...first }
+          };
+          closed = true;
+          autoClosedContours += 1;
+        }
       }
-      const nextCandidates = (adjacency.get(currentNode) || []).filter((id) => unused.has(id));
-      if (nextCandidates.length === 0) {
-        break;
+
+      const perimeter = chain.reduce((sum, seg) => sum + segmentLength(seg), 0);
+      if (closed && chain.length > 1) {
+        const signedArea = signedAreaFromSegments(chain);
+        componentContours.push({
+          closed: true,
+          segments: chain,
+          perimeter,
+          signedArea,
+          winding: signedArea >= 0 ? "CCW" : "CW"
+        });
+      } else {
+        componentOpenChains.push({
+          closed: false,
+          segments: chain,
+          perimeter
+        });
       }
-      currentEdge = edges[nextCandidates[0]];
     }
 
-    const perimeter = chain.reduce((sum, seg) => sum + segmentLength(seg), 0);
-    if (closed && chain.length > 1) {
-      const signedArea = signedAreaFromSegments(chain);
-      contours.push({
-        closed: true,
-        segments: chain,
-        perimeter,
-        signedArea,
-        winding: signedArea >= 0 ? "CCW" : "CW"
-      });
+    if (componentContours.length > 0) {
+      contours.push(...componentContours);
+      openChains.push(...componentOpenChains);
     } else {
-      openChains.push({
-        closed: false,
-        segments: chain,
-        perimeter
-      });
+      discardedOpenGroups += 1;
     }
-  }
+  });
 
   const warnings = [];
   const intersections = detectIntersections(contours, epsilon);
   if (intersections > 0) {
     warnings.push(`Detected ${intersections} potential edge intersections.`);
   }
-  if (openChains.length > 0 || openEdgeIds.size > 0) {
-    warnings.push("Open contours detected.");
-  }
+  warnings.push(`Snapped ${snapped.snappedVertexPairs} vertex pairs within tolerance`);
+  warnings.push(`Auto-closed ${autoClosedContours} contours`);
+  warnings.push(`Discarded ${discardedOpenGroups} open geometry groups`);
 
   return {
     contours,
     openChains,
-    openEdgeIds: Array.from(openEdgeIds),
+    openEdgeIds: [],
     warnings,
     debug: {
       nodeCount: nodes.length,
       edgeCount: edges.length,
-      openNodeCount: Array.from(degree.values()).filter((d) => d !== 2).length
+      openNodeCount: Array.from(degree.values()).filter((d) => d !== 2).length,
+      snappedVertexPairs: snapped.snappedVertexPairs,
+      autoClosedContours,
+      discardedOpenGroups
     }
   };
 }

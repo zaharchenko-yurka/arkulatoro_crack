@@ -12,17 +12,28 @@ add_action('wp_enqueue_scripts', 'dxf_glc_enqueue_assets');*/
 function dxf_glc_enqueue_assets() {
 
     $base = plugin_dir_url(__FILE__) . 'assets/';
+    $base_path = plugin_dir_path(__FILE__) . 'assets/';
+
+    $style_ver = file_exists($base_path . 'style.css') ? filemtime($base_path . 'style.css') : false;
+    $unit_ver = file_exists($base_path . 'js/unitConverter.js') ? filemtime($base_path . 'js/unitConverter.js') : false;
+    $parser_ver = file_exists($base_path . 'js/dxfParser.js') ? filemtime($base_path . 'js/dxfParser.js') : false;
+    $contour_ver = file_exists($base_path . 'js/contourBuilder.js') ? filemtime($base_path . 'js/contourBuilder.js') : false;
+    $svg_ver = file_exists($base_path . 'js/svgRenderer.js') ? filemtime($base_path . 'js/svgRenderer.js') : false;
+    $glc_ver = file_exists($base_path . 'js/glcBuilder.js') ? filemtime($base_path . 'js/glcBuilder.js') : false;
+    $app_ver = file_exists($base_path . 'js/app.js') ? filemtime($base_path . 'js/app.js') : false;
 
     wp_enqueue_style(
         'dxf-glc-style',
-        $base . 'style.css'
+        $base . 'style.css',
+        [],
+        $style_ver
     );
 
     wp_enqueue_script(
         'unit-converter',
         $base . 'js/unitConverter.js',
         [],
-        false,
+        $unit_ver,
         true
     );
 
@@ -30,7 +41,7 @@ function dxf_glc_enqueue_assets() {
         'dxf-parser',
         $base . 'js/dxfParser.js',
         [],
-        false,
+        $parser_ver,
         true
     );
 
@@ -38,7 +49,7 @@ function dxf_glc_enqueue_assets() {
         'contour-builder',
         $base . 'js/contourBuilder.js',
         [],
-        false,
+        $contour_ver,
         true
     );
 
@@ -46,7 +57,7 @@ function dxf_glc_enqueue_assets() {
         'svg-renderer',
         $base . 'js/svgRenderer.js',
         [],
-        false,
+        $svg_ver,
         true
     );
 
@@ -54,7 +65,7 @@ function dxf_glc_enqueue_assets() {
         'glc-builder',
         $base . 'js/glcBuilder.js',
         [],
-        false,
+        $glc_ver,
         true
     );
 
@@ -68,7 +79,7 @@ function dxf_glc_enqueue_assets() {
             'svg-renderer',
             'glc-builder'
         ],
-        false,
+        $app_ver,
         true
     );
 }

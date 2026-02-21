@@ -126,10 +126,19 @@ Open `index.html` in a modern browser with ES6 module support.
 5. Click "Convert" and "Download GLC"
 6. Open in Arkulator - should show geometry correctly
 
-### Current Limitation
-- Upload any DXF with open lines or text
-- Parser will show: "Contours: 0" and "Open contours detected"
-- This is expected behavior until improvements are implemented
+### Internal Validation Scenarios
+
+1. Valid rectangle + garbage + text
+- Input: 1 closed rectangle, 5 random crossing lines, 2 text labels.
+- Expected: converter exports 1 valid ceiling contour; text/non-geometry entities are skipped; open geometry groups are discarded.
+
+2. Tiny gap closure
+- Input: a nearly closed contour with endpoint gap around `0.00005 mm`.
+- Expected: endpoints are snapped/auto-closed and exported as a closed contour.
+
+3. Mixed macro-elements
+- Input: DXF containing several disconnected groups where only some groups form closed loops.
+- Expected: only groups with at least one closed contour are kept for export; open-only groups are discarded.
 
 ## Code Notes for AI Agents
 
