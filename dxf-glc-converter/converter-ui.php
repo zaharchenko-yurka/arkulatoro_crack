@@ -3,7 +3,10 @@
         <h2>DXF to GLC Converter</h2>
         <label class="field">
             <span>DXF file</span>
-            <input type="file" id="dxfFile" accept=".dxf,text/plain">
+            <div id="dxfDropZone" class="drop-zone" role="button" tabindex="0" aria-label="Drop DXF file here or click to choose">
+                <p class="drop-zone__text">Drag and drop a .dxf file here, or click to choose</p>
+                <input type="file" id="dxfFile" accept=".dxf" class="drop-zone__input">
+            </div>
         </label>
         <label class="field">
             <span>Unit override</span>
@@ -18,6 +21,7 @@
             <button id="convertBtn" type="button">Convert</button>
             <button id="downloadBtn" type="button" disabled>Download GLC</button>
         </div>
+        <div id="statusText" class="status">No file selected.</div>
         <div id="stats" class="stats">No file loaded.</div>
         <div id="errorPanel" class="error-panel"></div>
         <pre id="debugLog" class="debug-log"></pre>

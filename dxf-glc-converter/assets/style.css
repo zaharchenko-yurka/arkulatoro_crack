@@ -54,6 +54,35 @@ h1, h2 {
   font-size: 0.92rem;
 }
 
+.drop-zone {
+  border: 2px dashed var(--line);
+  border-radius: 10px;
+  padding: 14px;
+  background: #f8fbf7;
+  transition: border-color 0.2s ease, background-color 0.2s ease;
+  cursor: pointer;
+}
+
+.drop-zone.is-hover {
+  border-color: var(--accent);
+  background: #edf7f1;
+}
+
+.drop-zone:focus-visible {
+  outline: 2px solid #88b89d;
+  outline-offset: 2px;
+}
+
+.drop-zone__text {
+  margin: 0 0 10px;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.drop-zone__input {
+  margin: 0;
+}
+
 input[type="file"], select, button {
   width: 100%;
   border: 1px solid var(--line);
@@ -84,6 +113,25 @@ button[disabled] {
   margin-top: 12px;
   font-size: 0.92rem;
   color: var(--muted);
+}
+
+.status {
+  margin-top: 12px;
+  font-size: 0.92rem;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.status.info {
+  color: var(--muted);
+}
+
+.status.success {
+  color: var(--accent);
+}
+
+.status.error {
+  color: var(--error);
 }
 
 .error-panel {

@@ -189,3 +189,20 @@ Open `index.html` in a modern browser with ES6 module support.
 ## Contributors
 
 Initial development and debugging completed.
+
+## Update: Drag-and-Drop + Safe Validation
+
+- Added drag-and-drop zone for `.dxf` uploads (also keeps regular file input workflow).
+- Added frontend and backend file validation:
+  - extension check (`.dxf` only)
+  - upload size check against WordPress max upload size
+  - backend MIME verification and executable-file blocking
+  - AJAX nonce verification (`admin-ajax.php`)
+- Added UX statuses:
+  - `Файл завантажено`
+  - `Йде конвертація`
+  - `Файл готовий`
+  - `Помилка`
+- GLC download now uses the uploaded DXF base name:
+  - `ceiling_plan.dxf` -> `ceiling_plan.glc`
+- File names are sanitized server-side while preserving Unicode/Cyrillic support for download names.
