@@ -1,6 +1,6 @@
 import { parseDxf } from "./dxfParser.js";
 import { buildContours } from "./contourBuilder.js";
-import { renderPreview } from "./svgRenderer.js";
+import { renderRawEntities } from "./svgRenderer.js";
 import { buildGlc } from "./glcBuilder.js";
 
 const dxfFile = document.getElementById("dxfFile");
@@ -21,6 +21,10 @@ let glcContent = "";
 let selectedFileName = "";
 let downloadBaseName = "";
 let isProcessing = false;
+const state = {
+  rawEntities: [],
+  cleanedContours: []
+};
 
 function setMessages(errors, warnings) {
   errorPanel.innerHTML = "";
@@ -98,6 +102,11 @@ function resetLoadedData() {
   glcContent = "";
   selectedFileName = "";
   downloadBaseName = "";
+  state.rawEntities = [];
+  state.cleanedContours = [];
+  if (previewSvg) {
+    previewSvg.innerHTML = "";
+  }
   if (downloadBtn) {
     downloadBtn.disabled = true;
   }
@@ -206,8 +215,11 @@ function convert() {
 
   try {
     const parsed = parseDxf(fileText, unitOverride.value);
+    state.rawEntities = parsed.rawEntities;
+    renderRawEntities(previewSvg, state.rawEntities);
+
     const contourData = buildContours(parsed.segments, 0.5);
-    renderPreview(previewSvg, contourData);
+    state.cleanedContours = contourData.contours;
 
     const errors = [...parsed.errors];
     const warnings = [...parsed.warnings, ...contourData.warnings];
@@ -243,10 +255,11 @@ function convert() {
       return;
     }
 
-    glcContent = buildGlc(contourData.contours);
+    glcContent = buildGlc(state.cleanedContours);
     setStatus("Файл готовий", "success");
   } catch (error) {
     glcContent = "";
+    state.cleanedContours = [];
     setMessages([error.message || "Conversion failed."], []);
     setStatus("Помилка", "error");
   } finally {

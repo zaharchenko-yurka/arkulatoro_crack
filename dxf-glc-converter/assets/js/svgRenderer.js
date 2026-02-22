@@ -10,6 +10,16 @@ function collectBounds(segments) {
   let maxX = -Infinity;
   let maxY = -Infinity;
   segments.forEach((seg) => {
+    if (seg.type === "text") {
+      const fontSize = Math.max(1, Number(seg.height) || 2.5);
+      const textLen = (seg.text || "").length;
+      const textWidth = Math.max(fontSize * 0.6, textLen * fontSize * 0.6);
+      minX = Math.min(minX, seg.position.x);
+      minY = Math.min(minY, seg.position.y);
+      maxX = Math.max(maxX, seg.position.x + textWidth);
+      maxY = Math.max(maxY, seg.position.y + fontSize);
+      return;
+    }
     const pts = [seg.start, seg.end];
     if (seg.type === "arc") {
       pts.push({ x: seg.center.x + seg.radius, y: seg.center.y });
@@ -30,6 +40,25 @@ function collectBounds(segments) {
   return { minX, minY, maxX, maxY };
 }
 
+function renderText(svg, textEntity, bounds) {
+  const mappedY = bounds.minY + bounds.maxY - textEntity.position.y;
+  const text = createSvgElement("text", {
+    x: textEntity.position.x,
+    y: mappedY,
+    fill: "#1f2a24",
+    "font-size": Math.max(1, Number(textEntity.height) || 2.5),
+    "font-family": "Segoe UI, Tahoma, sans-serif",
+    "dominant-baseline": "hanging"
+  });
+  const rotation = Number(textEntity.rotationDeg) || 0;
+  if (rotation !== 0) {
+    // SVG uses Y-down; mapped DXF text rotation needs opposite sign.
+    text.setAttribute("transform", `rotate(${-rotation} ${textEntity.position.x} ${mappedY})`);
+  }
+  text.textContent = textEntity.text || "";
+  svg.appendChild(text);
+}
+
 function arcPath(seg) {
   const largeArc = Math.abs(seg.sweepDeg) > 180 ? 1 : 0;
   const displayClockwise = !seg.clockwise;
@@ -37,9 +66,9 @@ function arcPath(seg) {
   return `M ${seg.start.x} ${seg.start.y} A ${seg.radius} ${seg.radius} 0 ${largeArc} ${sweepFlag} ${seg.end.x} ${seg.end.y}`;
 }
 
-function renderSegment(svg, seg, color, width) {
+function renderSegment(container, seg, color, width) {
   if (seg.type === "line") {
-    svg.appendChild(
+    container.appendChild(
       createSvgElement("line", {
         x1: seg.start.x,
         y1: seg.start.y,
@@ -52,7 +81,7 @@ function renderSegment(svg, seg, color, width) {
     );
     return;
   }
-  svg.appendChild(
+  container.appendChild(
     createSvgElement("path", {
       d: arcPath(seg),
       fill: "none",
@@ -63,12 +92,9 @@ function renderSegment(svg, seg, color, width) {
   );
 }
 
-export function renderPreview(svgEl, contourData) {
+export function renderRawEntities(svgEl, rawEntities) {
   svgEl.innerHTML = "";
-  const allSegments = [
-    ...contourData.contours.flatMap((c) => c.segments),
-    ...contourData.openChains.flatMap((c) => c.segments)
-  ];
+  const allSegments = rawEntities || [];
 
   if (allSegments.length === 0) {
     const text = createSvgElement("text", {
@@ -96,10 +122,18 @@ export function renderPreview(svgEl, contourData) {
   });
   svgEl.appendChild(grid);
 
-  contourData.contours.forEach((contour) => {
-    contour.segments.forEach((seg) => renderSegment(svgEl, seg, "#1f2a24", 1.4));
+  // DXF uses Cartesian coordinates (Y up), while SVG's native axis is Y down.
+  // Keep original DXF X values unchanged and invert only Y for display.
+  const dxfLayer = createSvgElement("g", {
+    transform: `translate(0 ${bounds.minY + bounds.maxY}) scale(1 -1)`
   });
-  contourData.openChains.forEach((chain) => {
-    chain.segments.forEach((seg) => renderSegment(svgEl, seg, "#b42318", 2.2));
+  svgEl.appendChild(dxfLayer);
+
+  allSegments.forEach((seg) => {
+    if (seg.type === "text") {
+      renderText(svgEl, seg, bounds);
+      return;
+    }
+    renderSegment(dxfLayer, seg, "#1f2a24", 1.4);
   });
 }

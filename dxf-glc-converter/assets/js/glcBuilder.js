@@ -1,5 +1,4 @@
 import { formatNumber } from "./unitConverter.js";
-import { reverseContourSegments } from "./contourBuilder.js";
 
 function uuid() {
   if (typeof crypto !== "undefined" && crypto.randomUUID) {
@@ -69,12 +68,8 @@ function sampleAreaSigned(segments) {
   return area / 2;
 }
 
-function ensureClockwise(segments) {
-  const signed = sampleAreaSigned(segments);
-  if (signed <= 0) {
-    return { segments, area: Math.abs(signed) };
-  }
-  return { segments: reverseContourSegments(segments), area: Math.abs(signed) };
+function measureAreaAbs(segments) {
+  return Math.abs(sampleAreaSigned(segments));
 }
 
 function bbox(segments) {
@@ -100,9 +95,37 @@ function segmentPerimeter(seg) {
   return (Math.PI * seg.radius * Math.abs(seg.sweepDeg)) / 180;
 }
 
+function mirrorYPoint(point, bounds) {
+  return {
+    x: point.x,
+    y: bounds.minY + bounds.maxY - point.y
+  };
+}
+
+function toArkulatorSegments(segments) {
+  const bounds = bbox(segments);
+  // DXF is treated as Y-up in parser/preview; Arkulator geometry display is Y-down.
+  // For export keep X unchanged and mirror only Y to preserve visual orientation.
+  return segments.map((seg) => {
+    if (seg.type === "line") {
+      return {
+        ...seg,
+        start: mirrorYPoint(seg.start, bounds),
+        end: mirrorYPoint(seg.end, bounds)
+      };
+    }
+    return {
+      ...seg,
+      start: mirrorYPoint(seg.start, bounds),
+      end: mirrorYPoint(seg.end, bounds),
+      center: mirrorYPoint(seg.center, bounds),
+      clockwise: !seg.clockwise
+    };
+  });
+}
+
 function buildRoom(contour, roomIndex) {
-  const cw = ensureClockwise(contour.segments);
-  const segments = cw.segments;
+  const segments = toArkulatorSegments(contour.segments);
   const points = segments.map((s) => s.start);
   const roomUid = uuid();
   const zoneUid = uuid();
@@ -110,7 +133,7 @@ function buildRoom(contour, roomIndex) {
   const curvedLengthMm = segments
     .filter((s) => s.type === "arc")
     .reduce((sum, seg) => sum + segmentPerimeter(seg), 0);
-  const areaMm2 = cw.area;
+  const areaMm2 = measureAreaAbs(segments);
   const bounds = bbox(segments);
   const lines = [];
 

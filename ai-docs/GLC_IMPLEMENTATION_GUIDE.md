@@ -76,13 +76,18 @@ Room
 2. Convert to ordered contour:
    - vertices -> `AnglePoint`
    - edges -> `NPLine`
-3. For each arc:
+3. Apply coordinate-system adaptation for Arkulator import:
+   - When DXF geometry is represented in `Y-up`, mirror only Y before writing GLC coordinates.
+   - Use room-bounds transform: `y' = minY + maxY - y`.
+   - Do not mirror X.
+   - For arcs, mirror `start/end/center` and invert direction flag (`clockwise`).
+4. For each arc:
    - compute sagitta (`ArcHei`) and midpoint (`ArcPoint`)
    - fill matching `OtrArcHei` index in `OTRARCS`
-4. Generate default auxiliary blocks:
+5. Generate default auxiliary blocks:
    - `BLUEPOINTS`, `dim_lines_`, `ALLDIMLINES`, etc.
-5. Populate `GVals` from computed geometry.
-6. Fill `PARAMS2` and estimate lines from business rules/catalog.
+6. Populate `GVals` from computed geometry.
+7. Fill `PARAMS2` and estimate lines from business rules/catalog.
 
 ## 7) Multi-object handling
 

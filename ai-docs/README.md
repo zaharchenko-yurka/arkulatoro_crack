@@ -24,6 +24,7 @@ Single-room and multi-room variants are both supported. Multi-room files prepend
 - Curves: chord endpoints + `ArcHei` sagitta + `ArcPoint`; arc length reconstruction is numerically confirmed.
 - Cutouts: `VIREZS` / `ONEVIREZ`.
 - Zones: `ZONESLIST` with one or more `OneZone` contours.
+- Arkulator import convention (confirmed in DXF->GLC integration): when source geometry is `Y-up`, export GLC with Y-mirror only (`y' = minY + maxY - y`), keeping X unchanged.
 
 ## Cost model summary
 

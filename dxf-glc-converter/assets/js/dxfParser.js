@@ -147,6 +147,56 @@ function parseEntities(pairs) {
   return entities;
 }
 
+function parseTextEntity(entity) {
+  const data = {};
+  for (const row of entity) {
+    data[row.code] = row.value;
+  }
+  const position = {
+    x: Number.parseFloat((data[10] ?? "").trim()),
+    y: Number.parseFloat((data[20] ?? "").trim())
+  };
+  if (![position.x, position.y].every(Number.isFinite)) {
+    return null;
+  }
+  const height = Number.parseFloat((data[40] ?? "2.5").trim());
+  const rotationDeg = Number.parseFloat((data[50] ?? "0").trim());
+  return {
+    type: "text",
+    position,
+    text: String(data[1] ?? "").trim(),
+    height: Number.isFinite(height) && height > 0 ? height : 2.5,
+    rotationDeg: Number.isFinite(rotationDeg) ? rotationDeg : 0
+  };
+}
+
+function parseMTextEntity(entity) {
+  const data = {};
+  const chunks = [];
+  for (const row of entity) {
+    data[row.code] = row.value;
+    if (row.code === 1 || row.code === 3) {
+      chunks.push(row.value);
+    }
+  }
+  const position = {
+    x: Number.parseFloat((data[10] ?? "").trim()),
+    y: Number.parseFloat((data[20] ?? "").trim())
+  };
+  if (![position.x, position.y].every(Number.isFinite)) {
+    return null;
+  }
+  const height = Number.parseFloat((data[40] ?? "2.5").trim());
+  const rotationDeg = Number.parseFloat((data[50] ?? "0").trim());
+  return {
+    type: "text",
+    position,
+    text: chunks.join("").trim(),
+    height: Number.isFinite(height) && height > 0 ? height : 2.5,
+    rotationDeg: Number.isFinite(rotationDeg) ? rotationDeg : 0
+  };
+}
+
 function parseBlocks(pairs) {
   const blocks = new Map();
   let inBlocks = false;
@@ -251,6 +301,62 @@ function transformPoint(point, insert) {
   };
 }
 
+function scaleSegment(seg, scale) {
+  if (seg.type === "line") {
+    return {
+      ...seg,
+      start: scalePoint(seg.start, scale),
+      end: scalePoint(seg.end, scale)
+    };
+  }
+  return {
+    ...seg,
+    center: scalePoint(seg.center, scale),
+    radius: seg.radius * scale,
+    start: scalePoint(seg.start, scale),
+    end: scalePoint(seg.end, scale)
+  };
+}
+
+function transformAndScaleSegment(seg, insert, scale) {
+  if (seg.type === "line") {
+    const transformedStart = transformPoint(seg.start, insert);
+    const transformedEnd = transformPoint(seg.end, insert);
+    return {
+      ...seg,
+      start: scalePoint(transformedStart, scale),
+      end: scalePoint(transformedEnd, scale)
+    };
+  }
+  const transformedCenter = transformPoint(seg.center, insert);
+  const transformedStart = transformPoint(seg.start, insert);
+  const transformedEnd = transformPoint(seg.end, insert);
+  return {
+    ...seg,
+    center: scalePoint(transformedCenter, scale),
+    radius: seg.radius * insert.scaleX * scale,
+    start: scalePoint(transformedStart, scale),
+    end: scalePoint(transformedEnd, scale)
+  };
+}
+
+function scaleTextEntity(textEntity, scale) {
+  return {
+    ...textEntity,
+    position: scalePoint(textEntity.position, scale),
+    height: textEntity.height * scale
+  };
+}
+
+function transformAndScaleTextEntity(textEntity, insert, scale) {
+  return {
+    ...textEntity,
+    position: scalePoint(transformPoint(textEntity.position, insert), scale),
+    height: textEntity.height * insert.scaleX * scale,
+    rotationDeg: textEntity.rotationDeg + insert.rotationDeg
+  };
+}
+
 export function parseDxf(text, unitOverride = "auto") {
   const warnings = [];
   const errors = [];
@@ -263,12 +369,14 @@ export function parseDxf(text, unitOverride = "auto") {
   const scale = resolveUnitScale(unitOverride, insunits);
   const entities = parseEntities(pairs);
   const blocks = parseBlocks(pairs);
+  const rawEntities = [];
   const segments = [];
   let skippedNonGeometry = 0;
   let skippedMalformed = 0;
   let skippedMixedBlocks = 0;
   let expandedBlockSegments = 0;
   const allowedEntityTypes = new Set(["LINE", "ARC"]);
+  const rawRenderableTypes = new Set(["LINE", "ARC", "TEXT", "MTEXT"]);
   const blockCache = new Map();
 
   function resolveBlockGeometry(name) {
@@ -277,10 +385,11 @@ export function parseDxf(text, unitOverride = "auto") {
     }
     const blockEntities = blocks.get(name) || [];
     const out = { valid: true, segments: [] };
+    let hasUnsupported = false;
     for (const be of blockEntities) {
       if (!allowedEntityTypes.has(be.type)) {
-        out.valid = false;
-        break;
+        hasUnsupported = true;
+        continue;
       }
       if (be.type === "LINE") {
         const line = parseLineEntity(be.rows);
@@ -296,6 +405,7 @@ export function parseDxf(text, unitOverride = "auto") {
         out.segments.push(arc);
       }
     }
+    out.valid = !hasUnsupported;
     blockCache.set(name, out);
     return out;
   }
@@ -308,42 +418,73 @@ export function parseDxf(text, unitOverride = "auto") {
         continue;
       }
       const block = resolveBlockGeometry(insert.name);
+      const isUniformScale = Math.abs(insert.scaleX - insert.scaleY) <= 1e-9;
+      if (isUniformScale && insert.scaleX > 0 && insert.scaleY > 0) {
+        const blockEntities = blocks.get(insert.name) || [];
+        blockEntities.forEach((be) => {
+          if (!rawRenderableTypes.has(be.type)) {
+            return;
+          }
+          if (be.type === "LINE") {
+            const line = parseLineEntity(be.rows);
+            if (line) {
+              rawEntities.push(transformAndScaleSegment(line, insert, scale));
+            }
+            return;
+          }
+          if (be.type === "ARC") {
+            const arc = parseArcEntity(be.rows);
+            if (arc) {
+              rawEntities.push(transformAndScaleSegment(arc, insert, scale));
+            }
+            return;
+          }
+          if (be.type === "TEXT") {
+            const textEntity = parseTextEntity(be.rows);
+            if (textEntity) {
+              rawEntities.push(transformAndScaleTextEntity(textEntity, insert, scale));
+            }
+            return;
+          }
+          if (be.type === "MTEXT") {
+            const textEntity = parseMTextEntity(be.rows);
+            if (textEntity) {
+              rawEntities.push(transformAndScaleTextEntity(textEntity, insert, scale));
+            }
+          }
+        });
+      } else {
+        skippedNonGeometry += 1;
+      }
+
       if (!block.valid) {
         skippedMixedBlocks += 1;
         continue;
       }
-      const isUniformScale = Math.abs(insert.scaleX - insert.scaleY) <= 1e-9;
       if (!isUniformScale || insert.scaleX <= 0 || insert.scaleY <= 0) {
-        skippedNonGeometry += 1;
         continue;
       }
       block.segments.forEach((seg) => {
-        if (seg.type === "line") {
-          const transformedStart = transformPoint(seg.start, insert);
-          const transformedEnd = transformPoint(seg.end, insert);
-          segments.push({
-            ...seg,
-            start: scalePoint(transformedStart, scale),
-            end: scalePoint(transformedEnd, scale)
-          });
-        } else if (seg.type === "arc") {
-          const transformedCenter = transformPoint(seg.center, insert);
-          const transformedStart = transformPoint(seg.start, insert);
-          const transformedEnd = transformPoint(seg.end, insert);
-          segments.push({
-            ...seg,
-            center: scalePoint(transformedCenter, scale),
-            radius: seg.radius * insert.scaleX * scale,
-            start: scalePoint(transformedStart, scale),
-            end: scalePoint(transformedEnd, scale)
-          });
-        }
+        segments.push(transformAndScaleSegment(seg, insert, scale));
         expandedBlockSegments += 1;
       });
       continue;
     }
 
     if (!allowedEntityTypes.has(e.type)) {
+      if (e.type === "TEXT") {
+        const textEntity = parseTextEntity(e.rows);
+        if (textEntity) {
+          rawEntities.push(scaleTextEntity(textEntity, scale));
+          continue;
+        }
+      } else if (e.type === "MTEXT") {
+        const textEntity = parseMTextEntity(e.rows);
+        if (textEntity) {
+          rawEntities.push(scaleTextEntity(textEntity, scale));
+          continue;
+        }
+      }
       skippedNonGeometry += 1;
       continue;
     }
@@ -354,11 +495,9 @@ export function parseDxf(text, unitOverride = "auto") {
         skippedMalformed += 1;
         continue;
       }
-      segments.push({
-        ...line,
-        start: scalePoint(line.start, scale),
-        end: scalePoint(line.end, scale)
-      });
+      const scaledLine = scaleSegment(line, scale);
+      rawEntities.push(scaledLine);
+      segments.push(scaledLine);
     } else if (e.type === "ARC") {
       const arc = parseArcEntity(e.rows);
       if (!arc) {
@@ -366,13 +505,9 @@ export function parseDxf(text, unitOverride = "auto") {
         skippedMalformed += 1;
         continue;
       }
-      segments.push({
-        ...arc,
-        center: scalePoint(arc.center, scale),
-        radius: arc.radius * scale,
-        start: scalePoint(arc.start, scale),
-        end: scalePoint(arc.end, scale)
-      });
+      const scaledArc = scaleSegment(arc, scale);
+      rawEntities.push(scaledArc);
+      segments.push(scaledArc);
     }
   }
   warnings.push(`Skipped ${skippedNonGeometry} non-geometry entities`);
@@ -387,6 +522,7 @@ export function parseDxf(text, unitOverride = "auto") {
   return {
     insunits,
     unitScaleToMm: scale,
+    rawEntities,
     segments,
     warnings,
     errors,

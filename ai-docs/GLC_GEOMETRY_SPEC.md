@@ -17,6 +17,10 @@
   - `JValue 830` paired with coordinate distance of first segment (`033273.glc:51..57`).
   - `ArcHei` comments explicitly say mm (`033273.glc:67` comment).
   - GVals perimeter `D 19.565` is meters, matching geometry sum in mm / 1000 (`033273.glc:480`).
+- Arkulator import orientation rule validated in converter integration:
+  - If DXF source is handled in Cartesian `Y-up`, exported GLC must be transformed to Arkulator display convention by mirroring `Y` only.
+  - `X` must stay unchanged (no horizontal mirror).
+  - Practical transform used in export: `y' = minY + maxY - y` within room bounds.
 
 ### Highly probable
 - Axis orientation is screen/CAD-like with arbitrary origin; absolute origin not standardized across files.
