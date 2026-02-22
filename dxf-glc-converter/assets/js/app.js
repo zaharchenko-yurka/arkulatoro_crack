@@ -48,9 +48,10 @@ function formatPerimeter(contours) {
 }
 
 function writeDebug(payload) {
-  const lines = Object.entries(payload).map(([k, v]) => `${k}: ${typeof v === "string" ? v : JSON.stringify(v)}`);
-  debugLog.textContent = lines.join("\n");
-  console.debug("DXF->GLC debug", payload);
+  if (debugLog) {
+    const lines = Object.entries(payload).map(([k, v]) => `${k}: ${typeof v === "string" ? v : JSON.stringify(v)}`);
+    debugLog.textContent = lines.join("\n");
+  }
 }
 
 function setStatus(message, type = "info") {
@@ -229,13 +230,7 @@ function convert() {
 
     const contourCount = contourData.contours.length;
     const perimeterM = formatPerimeter(contourData.contours);
-    stats.textContent =
-      `Total segments parsed: ${parsed.debug.parsedSegments} | ` +
-      `Segments skipped: ${parsed.debug.skippedSegments} | ` +
-      `Snapped vertices: ${contourData.debug.snappedVertexPairs} | ` +
-      `Discarded open groups: ${contourData.debug.discardedOpenGroups} | ` +
-      `Final closed contours: ${contourCount} | ` +
-      `Total perimeter: ${perimeterM} m`;
+    stats.textContent = `Final closed contours: ${contourCount} | Total perimeter: ${perimeterM} m`;
 
     setMessages(errors, warnings);
 

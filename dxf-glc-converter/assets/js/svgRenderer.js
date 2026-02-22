@@ -4,6 +4,174 @@ function createSvgElement(tag, attrs = {}) {
   return el;
 }
 
+const MIN_SCALE = 0.1;
+const MAX_SCALE = 100;
+const PAN_SPEED = 1;
+const navStateBySvg = new WeakMap();
+
+function clamp(value, min, max) {
+  return Math.min(max, Math.max(min, value));
+}
+
+function getNavState(svgEl) {
+  let state = navStateBySvg.get(svgEl);
+  if (state) {
+    return state;
+  }
+
+  state = {
+    scale: 1,
+    offsetX: 0,
+    offsetY: 0,
+    defaultScale: 1,
+    defaultOffsetX: 0,
+    defaultOffsetY: 0,
+    isDragging: false,
+    lastMouseX: 0,
+    lastMouseY: 0,
+    viewport: null,
+    rafId: 0,
+    pendingBodyUserSelect: null
+  };
+
+  const applyTransformNow = () => {
+    state.rafId = 0;
+    if (!state.viewport) {
+      return;
+    }
+    state.viewport.setAttribute(
+      "transform",
+      `translate(${state.offsetX} ${state.offsetY}) scale(${state.scale})`
+    );
+  };
+
+  const scheduleApplyTransform = () => {
+    if (state.rafId) {
+      return;
+    }
+    state.rafId = window.requestAnimationFrame(applyTransformNow);
+  };
+
+  const getMouseInSvgCoords = (event) => {
+    const ctm = svgEl.getScreenCTM();
+    if (!ctm) {
+      return null;
+    }
+    const point = svgEl.createSVGPoint();
+    point.x = event.clientX;
+    point.y = event.clientY;
+    return point.matrixTransform(ctm.inverse());
+  };
+
+  const resetView = () => {
+    state.scale = state.defaultScale;
+    state.offsetX = state.defaultOffsetX;
+    state.offsetY = state.defaultOffsetY;
+    scheduleApplyTransform();
+  };
+
+  const onWheel = (event) => {
+    if (!state.viewport) {
+      return;
+    }
+    event.preventDefault();
+
+    const anchor = getMouseInSvgCoords(event);
+    if (!anchor) {
+      return;
+    }
+
+    const factor = Math.pow(1.1, -event.deltaY / 100);
+    const nextScale = clamp(state.scale * factor, MIN_SCALE, MAX_SCALE);
+    if (nextScale === state.scale) {
+      return;
+    }
+
+    const worldX = (anchor.x - state.offsetX) / state.scale;
+    const worldY = (anchor.y - state.offsetY) / state.scale;
+    state.scale = nextScale;
+    state.offsetX = anchor.x - worldX * state.scale;
+    state.offsetY = anchor.y - worldY * state.scale;
+    scheduleApplyTransform();
+  };
+
+  const onMouseDown = (event) => {
+    if (!state.viewport || event.button !== 0) {
+      return;
+    }
+    event.preventDefault();
+    const anchor = getMouseInSvgCoords(event);
+    state.isDragging = true;
+    state.lastMouseX = anchor ? anchor.x : event.clientX;
+    state.lastMouseY = anchor ? anchor.y : event.clientY;
+    svgEl.style.cursor = "grabbing";
+    state.pendingBodyUserSelect = document.body.style.userSelect;
+    document.body.style.userSelect = "none";
+  };
+
+  const onMouseMove = (event) => {
+    if (!state.isDragging || !state.viewport) {
+      return;
+    }
+    event.preventDefault();
+    const anchor = getMouseInSvgCoords(event);
+    const currentX = anchor ? anchor.x : event.clientX;
+    const currentY = anchor ? anchor.y : event.clientY;
+    const dx = (currentX - state.lastMouseX) * PAN_SPEED;
+    const dy = (currentY - state.lastMouseY) * PAN_SPEED;
+    state.lastMouseX = currentX;
+    state.lastMouseY = currentY;
+    state.offsetX += dx;
+    state.offsetY += dy;
+    scheduleApplyTransform();
+  };
+
+  const endDrag = () => {
+    if (!state.isDragging) {
+      return;
+    }
+    state.isDragging = false;
+    svgEl.style.cursor = "grab";
+    document.body.style.userSelect = state.pendingBodyUserSelect ?? "";
+    state.pendingBodyUserSelect = null;
+  };
+
+  const onDoubleClick = (event) => {
+    if (!state.viewport) {
+      return;
+    }
+    event.preventDefault();
+    resetView();
+  };
+
+  svgEl.addEventListener("wheel", onWheel, { passive: false });
+  svgEl.addEventListener("mousedown", onMouseDown);
+  window.addEventListener("mousemove", onMouseMove);
+  window.addEventListener("mouseup", endDrag);
+  window.addEventListener("mouseleave", endDrag);
+  svgEl.addEventListener("dblclick", onDoubleClick);
+
+  state.setViewport = (viewport) => {
+    if (state.isDragging) {
+      state.isDragging = false;
+      document.body.style.userSelect = state.pendingBodyUserSelect ?? "";
+      state.pendingBodyUserSelect = null;
+    }
+    state.viewport = viewport;
+    state.defaultScale = 1;
+    state.defaultOffsetX = 0;
+    state.defaultOffsetY = 0;
+    state.scale = 1;
+    state.offsetX = 0;
+    state.offsetY = 0;
+    svgEl.style.cursor = viewport ? "grab" : "";
+    scheduleApplyTransform();
+  };
+
+  navStateBySvg.set(svgEl, state);
+  return state;
+}
+
 function collectBounds(segments) {
   let minX = Infinity;
   let minY = Infinity;
@@ -40,7 +208,7 @@ function collectBounds(segments) {
   return { minX, minY, maxX, maxY };
 }
 
-function renderText(svg, textEntity, bounds) {
+function renderText(container, textEntity, bounds) {
   const mappedY = bounds.minY + bounds.maxY - textEntity.position.y;
   const text = createSvgElement("text", {
     x: textEntity.position.x,
@@ -56,7 +224,7 @@ function renderText(svg, textEntity, bounds) {
     text.setAttribute("transform", `rotate(${-rotation} ${textEntity.position.x} ${mappedY})`);
   }
   text.textContent = textEntity.text || "";
-  svg.appendChild(text);
+  container.appendChild(text);
 }
 
 function arcPath(seg) {
@@ -93,10 +261,12 @@ function renderSegment(container, seg, color, width) {
 }
 
 export function renderRawEntities(svgEl, rawEntities) {
+  const navState = getNavState(svgEl);
   svgEl.innerHTML = "";
   const allSegments = rawEntities || [];
 
   if (allSegments.length === 0) {
+    navState.setViewport(null);
     const text = createSvgElement("text", {
       x: 10,
       y: 20,
@@ -122,16 +292,20 @@ export function renderRawEntities(svgEl, rawEntities) {
   });
   svgEl.appendChild(grid);
 
+  const viewport = createSvgElement("g", { id: "viewport" });
+  svgEl.appendChild(viewport);
+  navState.setViewport(viewport);
+
   // DXF uses Cartesian coordinates (Y up), while SVG's native axis is Y down.
   // Keep original DXF X values unchanged and invert only Y for display.
   const dxfLayer = createSvgElement("g", {
     transform: `translate(0 ${bounds.minY + bounds.maxY}) scale(1 -1)`
   });
-  svgEl.appendChild(dxfLayer);
+  viewport.appendChild(dxfLayer);
 
   allSegments.forEach((seg) => {
     if (seg.type === "text") {
-      renderText(svgEl, seg, bounds);
+      renderText(viewport, seg, bounds);
       return;
     }
     renderSegment(dxfLayer, seg, "#1f2a24", 1.4);

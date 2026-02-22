@@ -24,7 +24,6 @@
         <div id="statusText" class="status">No file selected.</div>
         <div id="stats" class="stats">No file loaded.</div>
         <div id="errorPanel" class="error-panel"></div>
-        <pre id="debugLog" class="debug-log"></pre>
     </section>
 
     <section class="panel preview">
