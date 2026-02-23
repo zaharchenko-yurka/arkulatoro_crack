@@ -1,4 +1,4 @@
-import { resolveUnitScale, scalePoint } from "./unitConverter.js";
+import { resolveUnitScale } from "./unitConverter.js";
 
 function splitPairs(text) {
   const normalized = text.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
@@ -41,6 +41,14 @@ function parseInsUnits(pairs) {
   return 0;
 }
 
+function normalizeAngleDeg(angle) {
+  let a = angle % 360;
+  if (a < 0) {
+    a += 360;
+  }
+  return a;
+}
+
 function parseLineEntity(entity) {
   const data = {};
   for (const row of entity) {
@@ -58,14 +66,6 @@ function parseLineEntity(entity) {
     return null;
   }
   return { type: "line", start, end };
-}
-
-function normalizeAngleDeg(angle) {
-  let a = angle % 360;
-  if (a < 0) {
-    a += 360;
-  }
-  return a;
 }
 
 function parseArcEntity(entity) {
@@ -133,6 +133,10 @@ function parseEntities(pairs) {
       continue;
     }
     if (p.code === 0) {
+      if (current && current.type === "POLYLINE" && (value === "VERTEX" || value === "SEQEND")) {
+        current.rows.push({ code: 0, value });
+        continue;
+      }
       if (current) {
         entities.push(current);
       }
@@ -222,7 +226,7 @@ function parseBlocks(pairs) {
     }
 
     if (p.code === 0 && value === "BLOCK") {
-      currentBlock = { name: "", entities: [] };
+      currentBlock = { name: "", entities: [], basePoint: { x: 0, y: 0 } };
       currentEntity = null;
       continue;
     }
@@ -232,7 +236,7 @@ function parseBlocks(pairs) {
         currentBlock.entities.push(currentEntity);
       }
       if (currentBlock && currentBlock.name) {
-        blocks.set(currentBlock.name, currentBlock.entities);
+        blocks.set(currentBlock.name, currentBlock);
       }
       currentBlock = null;
       currentEntity = null;
@@ -247,8 +251,26 @@ function parseBlocks(pairs) {
       currentBlock.name = value;
       continue;
     }
+    if (!currentEntity && p.code === 10) {
+      const x = Number.parseFloat(value);
+      if (Number.isFinite(x)) {
+        currentBlock.basePoint.x = x;
+      }
+      continue;
+    }
+    if (!currentEntity && p.code === 20) {
+      const y = Number.parseFloat(value);
+      if (Number.isFinite(y)) {
+        currentBlock.basePoint.y = y;
+      }
+      continue;
+    }
 
     if (p.code === 0) {
+      if (currentEntity && currentEntity.type === "POLYLINE" && (value === "VERTEX" || value === "SEQEND")) {
+        currentEntity.rows.push({ code: 0, value });
+        continue;
+      }
       if (currentEntity) {
         currentBlock.entities.push(currentEntity);
       }
@@ -289,72 +311,416 @@ function parseInsertEntity(entity) {
   };
 }
 
-function transformPoint(point, insert) {
-  const sx = point.x * insert.scaleX;
-  const sy = point.y * insert.scaleY;
+function multiplyMatrix(a, b) {
+  return [
+    a[0] * b[0] + a[2] * b[1],
+    a[1] * b[0] + a[3] * b[1],
+    a[0] * b[2] + a[2] * b[3],
+    a[1] * b[2] + a[3] * b[3],
+    a[0] * b[4] + a[2] * b[5] + a[4],
+    a[1] * b[4] + a[3] * b[5] + a[5]
+  ];
+}
+
+function applyMatrix(point, matrix) {
+  return {
+    x: matrix[0] * point.x + matrix[2] * point.y + matrix[4],
+    y: matrix[1] * point.x + matrix[3] * point.y + matrix[5]
+  };
+}
+
+function getMatrixScale(matrix) {
+  const sx = Math.hypot(matrix[0], matrix[1]);
+  const sy = Math.hypot(matrix[2], matrix[3]);
+  return { sx, sy };
+}
+
+function getInsertMatrix(insert, blockBasePoint) {
   const a = (insert.rotationDeg * Math.PI) / 180;
-  const xr = sx * Math.cos(a) - sy * Math.sin(a);
-  const yr = sx * Math.sin(a) + sy * Math.cos(a);
-  return {
-    x: xr + insert.insertPoint.x,
-    y: yr + insert.insertPoint.y
-  };
+  const cos = Math.cos(a);
+  const sin = Math.sin(a);
+  const m = [
+    cos * insert.scaleX,
+    sin * insert.scaleX,
+    -sin * insert.scaleY,
+    cos * insert.scaleY,
+    insert.insertPoint.x,
+    insert.insertPoint.y
+  ];
+  const bx = Number.isFinite(blockBasePoint?.x) ? blockBasePoint.x : 0;
+  const by = Number.isFinite(blockBasePoint?.y) ? blockBasePoint.y : 0;
+  m[4] -= m[0] * bx + m[2] * by;
+  m[5] -= m[1] * bx + m[3] * by;
+  return m;
 }
 
-function scaleSegment(seg, scale) {
+function transformSegment(seg, matrix) {
   if (seg.type === "line") {
     return {
       ...seg,
-      start: scalePoint(seg.start, scale),
-      end: scalePoint(seg.end, scale)
+      start: applyMatrix(seg.start, matrix),
+      end: applyMatrix(seg.end, matrix)
     };
   }
-  return {
-    ...seg,
-    center: scalePoint(seg.center, scale),
-    radius: seg.radius * scale,
-    start: scalePoint(seg.start, scale),
-    end: scalePoint(seg.end, scale)
-  };
-}
-
-function transformAndScaleSegment(seg, insert, scale) {
-  if (seg.type === "line") {
-    const transformedStart = transformPoint(seg.start, insert);
-    const transformedEnd = transformPoint(seg.end, insert);
-    return {
-      ...seg,
-      start: scalePoint(transformedStart, scale),
-      end: scalePoint(transformedEnd, scale)
-    };
+  const { sx, sy } = getMatrixScale(matrix);
+  const orthogonality = Math.abs(matrix[0] * matrix[2] + matrix[1] * matrix[3]);
+  if (!Number.isFinite(sx) || !Number.isFinite(sy) || sx <= 0 || sy <= 0) {
+    return null;
   }
-  const transformedCenter = transformPoint(seg.center, insert);
-  const transformedStart = transformPoint(seg.start, insert);
-  const transformedEnd = transformPoint(seg.end, insert);
+  if (Math.abs(sx - sy) > 1e-6 * Math.max(1, sx, sy) || orthogonality > 1e-6 * Math.max(1, sx * sy)) {
+    return null;
+  }
+  const det = matrix[0] * matrix[3] - matrix[1] * matrix[2];
   return {
     ...seg,
-    center: scalePoint(transformedCenter, scale),
-    radius: seg.radius * insert.scaleX * scale,
-    start: scalePoint(transformedStart, scale),
-    end: scalePoint(transformedEnd, scale)
+    center: applyMatrix(seg.center, matrix),
+    radius: seg.radius * sx,
+    start: applyMatrix(seg.start, matrix),
+    end: applyMatrix(seg.end, matrix),
+    clockwise: det < 0 ? !seg.clockwise : seg.clockwise
   };
 }
 
-function scaleTextEntity(textEntity, scale) {
+function transformTextEntity(textEntity, matrix) {
+  const { sx, sy } = getMatrixScale(matrix);
+  const rotationFromMatrix = (Math.atan2(matrix[1], matrix[0]) * 180) / Math.PI;
+  const textScale = Number.isFinite((sx + sy) / 2) ? (sx + sy) / 2 : 1;
   return {
     ...textEntity,
-    position: scalePoint(textEntity.position, scale),
-    height: textEntity.height * scale
+    position: applyMatrix(textEntity.position, matrix),
+    height: textEntity.height * textScale,
+    rotationDeg: textEntity.rotationDeg + rotationFromMatrix
   };
 }
 
-function transformAndScaleTextEntity(textEntity, insert, scale) {
+function normalizePolylineVertices(vertices, closed, bulges) {
+  const out = [];
+  if (vertices.length < 2) {
+    return out;
+  }
+  const count = closed ? vertices.length : vertices.length - 1;
+  for (let i = 0; i < count; i += 1) {
+    const a = vertices[i];
+    const b = vertices[(i + 1) % vertices.length];
+    const bulge = bulges[i] ?? 0;
+    if (!Number.isFinite(a.x) || !Number.isFinite(a.y) || !Number.isFinite(b.x) || !Number.isFinite(b.y)) {
+      continue;
+    }
+    if (Math.hypot(b.x - a.x, b.y - a.y) <= 1e-9) {
+      continue;
+    }
+    if (Math.abs(bulge) <= 1e-12) {
+      out.push({
+        type: "line",
+        start: { x: a.x, y: a.y },
+        end: { x: b.x, y: b.y }
+      });
+      continue;
+    }
+    const chord = Math.hypot(b.x - a.x, b.y - a.y);
+    const theta = 4 * Math.atan(bulge);
+    const radius = (chord * (1 + bulge * bulge)) / (4 * Math.abs(bulge));
+    if (!Number.isFinite(radius) || radius <= 1e-9) {
+      out.push({
+        type: "line",
+        start: { x: a.x, y: a.y },
+        end: { x: b.x, y: b.y }
+      });
+      continue;
+    }
+    const mid = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+    const ux = (b.x - a.x) / chord;
+    const uy = (b.y - a.y) / chord;
+    const nx = -uy;
+    const ny = ux;
+    const h2 = radius * radius - (chord * chord) / 4;
+    const h = Math.sqrt(Math.max(0, h2));
+    const sign = bulge >= 0 ? 1 : -1;
+    const center = { x: mid.x + sign * h * nx, y: mid.y + sign * h * ny };
+    out.push({
+      type: "arc",
+      center,
+      radius,
+      start: { x: a.x, y: a.y },
+      end: { x: b.x, y: b.y },
+      startAngleDeg: normalizeAngleDeg((Math.atan2(a.y - center.y, a.x - center.x) * 180) / Math.PI),
+      endAngleDeg: normalizeAngleDeg((Math.atan2(b.y - center.y, b.x - center.x) * 180) / Math.PI),
+      sweepDeg: (Math.abs(theta) * 180) / Math.PI,
+      clockwise: theta < 0
+    });
+  }
+  return out;
+}
+
+function parseLwPolylineEntity(entity) {
+  const vertices = [];
+  const bulges = [];
+  let closed = false;
+  let currentVertex = -1;
+  for (const row of entity) {
+    const value = row.value.trim();
+    if (row.code === 70) {
+      const flag = Number.parseInt(value, 10);
+      if (Number.isFinite(flag) && (flag & 1) === 1) {
+        closed = true;
+      }
+      continue;
+    }
+    if (row.code === 10) {
+      const x = Number.parseFloat(value);
+      vertices.push({ x, y: Number.NaN });
+      bulges.push(0);
+      currentVertex = vertices.length - 1;
+      continue;
+    }
+    if (row.code === 20 && currentVertex >= 0) {
+      vertices[currentVertex].y = Number.parseFloat(value);
+      continue;
+    }
+    if (row.code === 42 && currentVertex >= 0) {
+      bulges[currentVertex] = Number.parseFloat(value);
+    }
+  }
+  const points = vertices.filter((v) => Number.isFinite(v.x) && Number.isFinite(v.y));
+  if (points.length < 2) {
+    return [];
+  }
+  return normalizePolylineVertices(points, closed, bulges);
+}
+
+function parsePolylineEntity(entity) {
+  const header = {};
+  const vertices = [];
+  const bulges = [];
+  let hasFaceRecords = false;
+  let sawVertex = false;
+  let currentVertex = null;
+  for (const row of entity) {
+    if (row.code === 0) {
+      const marker = row.value.trim();
+      if (marker === "VERTEX") {
+        if (currentVertex) {
+          vertices.push(currentVertex);
+        }
+        sawVertex = true;
+        currentVertex = {};
+      } else if (marker === "SEQEND") {
+        if (currentVertex) {
+          vertices.push(currentVertex);
+          currentVertex = null;
+        }
+        break;
+      } else if (currentVertex) {
+        vertices.push(currentVertex);
+        currentVertex = null;
+      }
+      continue;
+    }
+    if (!sawVertex) {
+      header[row.code] = row.value.trim();
+      continue;
+    }
+    if (!currentVertex) {
+      continue;
+    }
+    currentVertex[row.code] = row.value.trim();
+  }
+  if (currentVertex) {
+    vertices.push(currentVertex);
+  }
+  if (vertices.length < 2) {
+    return { segments: [], ignoredAs3d: true, usedLegacyMeshFallback: false };
+  }
+
+  const polyFlags = Number.parseInt(header[70] ?? "0", 10) || 0;
+  const isExplicit3d = (polyFlags & 8) !== 0 || (polyFlags & 16) !== 0 || (polyFlags & 32) !== 0;
+  const isMeshOrPolyface = (polyFlags & 64) !== 0;
+  const points = [];
+  let hasNonZeroZ = false;
+  vertices.forEach((v) => {
+    const vFlags = Number.parseInt(v[70] ?? "0", 10) || 0;
+    const isFaceRecord = (vFlags & 128) !== 0 && (v[71] !== undefined || v[72] !== undefined || v[73] !== undefined || v[74] !== undefined);
+    if (isFaceRecord) {
+      hasFaceRecords = true;
+      return;
+    }
+    const x = Number.parseFloat(v[10] ?? "");
+    const y = Number.parseFloat(v[20] ?? "");
+    const z = Number.parseFloat(v[30] ?? "0");
+    if (!Number.isFinite(x) || !Number.isFinite(y)) {
+      return;
+    }
+    if (Number.isFinite(z) && Math.abs(z) > 1e-9) {
+      hasNonZeroZ = true;
+    }
+    points.push({ x, y });
+    bulges.push(Number.parseFloat(v[42] ?? "0"));
+  });
+
+  if (points.length < 2) {
+    return { segments: [], ignoredAs3d: true, usedLegacyMeshFallback: false };
+  }
+
+  const strict2d = !isExplicit3d && !isMeshOrPolyface;
+  const canUseLegacyMeshFallback = !isExplicit3d && !hasNonZeroZ && isMeshOrPolyface && points.length >= 2;
+  if (!strict2d && !canUseLegacyMeshFallback) {
+    return { segments: [], ignoredAs3d: true, usedLegacyMeshFallback: false };
+  }
+
+  const closedFromFlag = (polyFlags & 1) === 1;
+  const closed = closedFromFlag || (canUseLegacyMeshFallback && hasFaceRecords);
   return {
-    ...textEntity,
-    position: scalePoint(transformPoint(textEntity.position, insert), scale),
-    height: textEntity.height * insert.scaleX * scale,
-    rotationDeg: textEntity.rotationDeg + insert.rotationDeg
+    segments: normalizePolylineVertices(points, closed, bulges),
+    ignoredAs3d: false,
+    usedLegacyMeshFallback: canUseLegacyMeshFallback
   };
+}
+
+function basisFunction(i, k, t, knots, memo) {
+  const key = `${i}:${k}:${t.toFixed(12)}`;
+  if (memo.has(key)) {
+    return memo.get(key);
+  }
+  let result = 0;
+  if (k === 0) {
+    const ki = knots[i];
+    const ki1 = knots[i + 1];
+    result = ki <= t && t < ki1 ? 1 : 0;
+  } else {
+    const denom1 = knots[i + k] - knots[i];
+    const denom2 = knots[i + k + 1] - knots[i + 1];
+    const term1 = denom1 === 0 ? 0 : ((t - knots[i]) / denom1) * basisFunction(i, k - 1, t, knots, memo);
+    const term2 = denom2 === 0 ? 0 : ((knots[i + k + 1] - t) / denom2) * basisFunction(i + 1, k - 1, t, knots, memo);
+    result = term1 + term2;
+  }
+  memo.set(key, result);
+  return result;
+}
+
+function evaluateSplinePoint(controlPoints, knots, degree, t) {
+  const memo = new Map();
+  let x = 0;
+  let y = 0;
+  for (let i = 0; i < controlPoints.length; i += 1) {
+    const b = basisFunction(i, degree, t, knots, memo);
+    x += controlPoints[i].x * b;
+    y += controlPoints[i].y * b;
+  }
+  return { x, y };
+}
+
+function segmentsFromPolylinePoints(points) {
+  const out = [];
+  if (points.length < 2) {
+    return out;
+  }
+  for (let i = 0; i < points.length - 1; i += 1) {
+    const a = points[i];
+    const b = points[i + 1];
+    if (Math.hypot(b.x - a.x, b.y - a.y) <= 1e-9) {
+      continue;
+    }
+    out.push({
+      type: "line",
+      start: { x: a.x, y: a.y },
+      end: { x: b.x, y: b.y }
+    });
+  }
+  return out;
+}
+
+function parseSplineEntity(entity, toleranceMmInEntityUnits = 0.1) {
+  const knots = [];
+  const controlPoints = [];
+  const fitPoints = [];
+  let degree = 3;
+  let currentControlIdx = -1;
+  let currentFitIdx = -1;
+
+  entity.forEach((row) => {
+    const value = row.value.trim();
+    if (row.code === 71) {
+      const parsed = Number.parseInt(value, 10);
+      if (Number.isFinite(parsed) && parsed >= 1) {
+        degree = parsed;
+      }
+      return;
+    }
+    if (row.code === 40) {
+      const k = Number.parseFloat(value);
+      if (Number.isFinite(k)) {
+        knots.push(k);
+      }
+      return;
+    }
+    if (row.code === 10) {
+      const x = Number.parseFloat(value);
+      controlPoints.push({ x, y: Number.NaN });
+      currentControlIdx = controlPoints.length - 1;
+      return;
+    }
+    if (row.code === 20 && currentControlIdx >= 0) {
+      controlPoints[currentControlIdx].y = Number.parseFloat(value);
+      return;
+    }
+    if (row.code === 11) {
+      const x = Number.parseFloat(value);
+      fitPoints.push({ x, y: Number.NaN });
+      currentFitIdx = fitPoints.length - 1;
+      return;
+    }
+    if (row.code === 21 && currentFitIdx >= 0) {
+      fitPoints[currentFitIdx].y = Number.parseFloat(value);
+    }
+  });
+
+  const cleanFitPoints = fitPoints.filter((p) => Number.isFinite(p.x) && Number.isFinite(p.y));
+  if (cleanFitPoints.length >= 2) {
+    return segmentsFromPolylinePoints(cleanFitPoints);
+  }
+
+  const cleanControl = controlPoints.filter((p) => Number.isFinite(p.x) && Number.isFinite(p.y));
+  if (cleanControl.length < 2) {
+    return [];
+  }
+
+  const neededKnots = cleanControl.length + degree + 1;
+  if (knots.length < neededKnots) {
+    return segmentsFromPolylinePoints(cleanControl);
+  }
+
+  const startT = knots[degree];
+  const endT = knots[knots.length - degree - 1];
+  if (!Number.isFinite(startT) || !Number.isFinite(endT) || endT <= startT) {
+    return segmentsFromPolylinePoints(cleanControl);
+  }
+
+  let controlPolylineLength = 0;
+  for (let i = 0; i < cleanControl.length - 1; i += 1) {
+    controlPolylineLength += Math.hypot(cleanControl[i + 1].x - cleanControl[i].x, cleanControl[i + 1].y - cleanControl[i].y);
+  }
+  const tol = Math.max(1e-6, toleranceMmInEntityUnits);
+  const sampleCount = Math.max(16, Math.min(512, Math.ceil(controlPolylineLength / tol)));
+  const points = [];
+  for (let i = 0; i <= sampleCount; i += 1) {
+    const t = i === sampleCount ? endT - 1e-12 : startT + ((endT - startT) * i) / sampleCount;
+    points.push(evaluateSplinePoint(cleanControl, knots, degree, t));
+  }
+  return segmentsFromPolylinePoints(points);
+}
+
+function pushTypeCount(map, key, amount = 1) {
+  map.set(key, (map.get(key) || 0) + amount);
+}
+
+function formatTypeCount(map) {
+  if (map.size === 0) {
+    return "";
+  }
+  return Array.from(map.entries())
+    .sort((a, b) => a[0].localeCompare(b[0]))
+    .map(([type, count]) => `${type}:${count}`)
+    .join(", ");
 }
 
 export function parseDxf(text, unitOverride = "auto") {
@@ -371,152 +737,221 @@ export function parseDxf(text, unitOverride = "auto") {
   const blocks = parseBlocks(pairs);
   const rawEntities = [];
   const segments = [];
+  const detectedEntityTypes = new Map();
+  const unsupportedEntityTypes = new Map();
+  const ignored3dEntityTypes = new Map();
+  const malformedEntityTypes = new Map();
+  const unsupportedArcTransformTypes = new Map();
+  const ignoredRenderableTypes = new Set(["DIMENSION", "HATCH"]);
+  const maxInsertDepth = 20;
+  const maxInsertExpansions = 200000;
+  let insertExpansions = 0;
   let skippedNonGeometry = 0;
   let skippedMalformed = 0;
-  let skippedMixedBlocks = 0;
+  let skipped3dEntities = 0;
   let expandedBlockSegments = 0;
-  const allowedEntityTypes = new Set(["LINE", "ARC"]);
-  const rawRenderableTypes = new Set(["LINE", "ARC", "TEXT", "MTEXT"]);
-  const blockCache = new Map();
+  let blockReferenceCount = 0;
+  let splineApproximationCount = 0;
+  let legacyMeshPolylineCount = 0;
+  let insertCycleSkips = 0;
+  let insertDepthSkips = 0;
+  let insertMissingBlockSkips = 0;
+  let insertExpansionLimitHits = 0;
 
-  function resolveBlockGeometry(name) {
-    if (blockCache.has(name)) {
-      return blockCache.get(name);
+  function pushSegment(segment, matrix, sourceType) {
+    const transformed = transformSegment(segment, matrix);
+    if (!transformed) {
+      pushTypeCount(unsupportedArcTransformTypes, sourceType);
+      skippedMalformed += 1;
+      return;
     }
-    const blockEntities = blocks.get(name) || [];
-    const out = { valid: true, segments: [] };
-    let hasUnsupported = false;
-    for (const be of blockEntities) {
-      if (!allowedEntityTypes.has(be.type)) {
-        hasUnsupported = true;
-        continue;
-      }
-      if (be.type === "LINE") {
-        const line = parseLineEntity(be.rows);
-        if (!line) {
-          continue;
-        }
-        out.segments.push(line);
-      } else if (be.type === "ARC") {
-        const arc = parseArcEntity(be.rows);
-        if (!arc) {
-          continue;
-        }
-        out.segments.push(arc);
-      }
-    }
-    out.valid = !hasUnsupported;
-    blockCache.set(name, out);
-    return out;
+    rawEntities.push(transformed);
+    segments.push(transformed);
   }
 
-  for (const e of entities) {
-    if (e.type === "INSERT") {
-      const insert = parseInsertEntity(e.rows);
-      if (!insert) {
-        skippedNonGeometry += 1;
-        continue;
-      }
-      const block = resolveBlockGeometry(insert.name);
-      const isUniformScale = Math.abs(insert.scaleX - insert.scaleY) <= 1e-9;
-      if (isUniformScale && insert.scaleX > 0 && insert.scaleY > 0) {
-        const blockEntities = blocks.get(insert.name) || [];
-        blockEntities.forEach((be) => {
-          if (!rawRenderableTypes.has(be.type)) {
-            return;
-          }
-          if (be.type === "LINE") {
-            const line = parseLineEntity(be.rows);
-            if (line) {
-              rawEntities.push(transformAndScaleSegment(line, insert, scale));
-            }
-            return;
-          }
-          if (be.type === "ARC") {
-            const arc = parseArcEntity(be.rows);
-            if (arc) {
-              rawEntities.push(transformAndScaleSegment(arc, insert, scale));
-            }
-            return;
-          }
-          if (be.type === "TEXT") {
-            const textEntity = parseTextEntity(be.rows);
-            if (textEntity) {
-              rawEntities.push(transformAndScaleTextEntity(textEntity, insert, scale));
-            }
-            return;
-          }
-          if (be.type === "MTEXT") {
-            const textEntity = parseMTextEntity(be.rows);
-            if (textEntity) {
-              rawEntities.push(transformAndScaleTextEntity(textEntity, insert, scale));
-            }
-          }
-        });
-      } else {
-        skippedNonGeometry += 1;
-      }
-
-      if (!block.valid) {
-        skippedMixedBlocks += 1;
-        continue;
-      }
-      if (!isUniformScale || insert.scaleX <= 0 || insert.scaleY <= 0) {
-        continue;
-      }
-      block.segments.forEach((seg) => {
-        segments.push(transformAndScaleSegment(seg, insert, scale));
-        expandedBlockSegments += 1;
-      });
-      continue;
-    }
-
-    if (!allowedEntityTypes.has(e.type)) {
-      if (e.type === "TEXT") {
-        const textEntity = parseTextEntity(e.rows);
-        if (textEntity) {
-          rawEntities.push(scaleTextEntity(textEntity, scale));
-          continue;
-        }
-      } else if (e.type === "MTEXT") {
-        const textEntity = parseMTextEntity(e.rows);
-        if (textEntity) {
-          rawEntities.push(scaleTextEntity(textEntity, scale));
-          continue;
-        }
-      }
-      skippedNonGeometry += 1;
-      continue;
-    }
-    if (e.type === "LINE") {
-      const line = parseLineEntity(e.rows);
+  function processEntity(entity, matrix, depth, insertStack) {
+    pushTypeCount(detectedEntityTypes, entity.type);
+    if (entity.type === "LINE") {
+      const line = parseLineEntity(entity.rows);
       if (!line) {
-        warnings.push("Skipped malformed LINE entity.");
+        pushTypeCount(malformedEntityTypes, "LINE");
         skippedMalformed += 1;
-        continue;
+        return;
       }
-      const scaledLine = scaleSegment(line, scale);
-      rawEntities.push(scaledLine);
-      segments.push(scaledLine);
-    } else if (e.type === "ARC") {
-      const arc = parseArcEntity(e.rows);
-      if (!arc) {
-        warnings.push("Skipped malformed ARC entity.");
-        skippedMalformed += 1;
-        continue;
-      }
-      const scaledArc = scaleSegment(arc, scale);
-      rawEntities.push(scaledArc);
-      segments.push(scaledArc);
+      pushSegment(line, matrix, "LINE");
+      return;
     }
+    if (entity.type === "ARC") {
+      const arc = parseArcEntity(entity.rows);
+      if (!arc) {
+        pushTypeCount(malformedEntityTypes, "ARC");
+        skippedMalformed += 1;
+        return;
+      }
+      pushSegment(arc, matrix, "ARC");
+      return;
+    }
+    if (entity.type === "LWPOLYLINE") {
+      const polySegments = parseLwPolylineEntity(entity.rows);
+      if (polySegments.length === 0) {
+        pushTypeCount(malformedEntityTypes, "LWPOLYLINE");
+        skippedMalformed += 1;
+        return;
+      }
+      polySegments.forEach((seg) => pushSegment(seg, matrix, "LWPOLYLINE"));
+      return;
+    }
+    if (entity.type === "POLYLINE") {
+      const parsed = parsePolylineEntity(entity.rows);
+      if (parsed.ignoredAs3d) {
+        pushTypeCount(ignored3dEntityTypes, "POLYLINE");
+        skipped3dEntities += 1;
+        return;
+      }
+      if (parsed.usedLegacyMeshFallback) {
+        legacyMeshPolylineCount += 1;
+      }
+      if (parsed.segments.length === 0) {
+        pushTypeCount(malformedEntityTypes, "POLYLINE");
+        skippedMalformed += 1;
+        return;
+      }
+      parsed.segments.forEach((seg) => pushSegment(seg, matrix, "POLYLINE"));
+      return;
+    }
+    if (entity.type === "SPLINE") {
+      const toleranceInEntityUnits = Math.max(1e-6, 0.1 / Math.max(scale, 1e-9));
+      const splineSegments = parseSplineEntity(entity.rows, toleranceInEntityUnits);
+      if (splineSegments.length === 0) {
+        pushTypeCount(malformedEntityTypes, "SPLINE");
+        skippedMalformed += 1;
+        return;
+      }
+      splineApproximationCount += 1;
+      splineSegments.forEach((seg) => pushSegment(seg, matrix, "SPLINE"));
+      return;
+    }
+    if (entity.type === "TEXT") {
+      const textEntity = parseTextEntity(entity.rows);
+      if (textEntity) {
+        rawEntities.push(transformTextEntity(textEntity, matrix));
+      } else {
+        pushTypeCount(malformedEntityTypes, "TEXT");
+        skippedMalformed += 1;
+      }
+      return;
+    }
+    if (entity.type === "MTEXT") {
+      const textEntity = parseMTextEntity(entity.rows);
+      if (textEntity) {
+        rawEntities.push(transformTextEntity(textEntity, matrix));
+      } else {
+        pushTypeCount(malformedEntityTypes, "MTEXT");
+        skippedMalformed += 1;
+      }
+      return;
+    }
+    if (entity.type === "INSERT") {
+      const insert = parseInsertEntity(entity.rows);
+      if (!insert) {
+        pushTypeCount(malformedEntityTypes, "INSERT");
+        skippedMalformed += 1;
+        return;
+      }
+      const block = blocks.get(insert.name);
+      if (!block) {
+        insertMissingBlockSkips += 1;
+        pushTypeCount(unsupportedEntityTypes, "INSERT_MISSING_BLOCK");
+        skippedNonGeometry += 1;
+        return;
+      }
+      if (depth >= maxInsertDepth) {
+        insertDepthSkips += 1;
+        pushTypeCount(unsupportedEntityTypes, "INSERT_MAX_DEPTH");
+        skippedNonGeometry += 1;
+        return;
+      }
+      if (insertStack.has(insert.name)) {
+        insertCycleSkips += 1;
+        pushTypeCount(unsupportedEntityTypes, "INSERT_CYCLE");
+        skippedNonGeometry += 1;
+        return;
+      }
+      blockReferenceCount += 1;
+      const insertMatrix = getInsertMatrix(insert, block.basePoint);
+      const nextMatrix = multiplyMatrix(matrix, insertMatrix);
+      insertStack.add(insert.name);
+      for (const be of block.entities) {
+        insertExpansions += 1;
+        if (insertExpansions > maxInsertExpansions) {
+          insertExpansionLimitHits += 1;
+          pushTypeCount(unsupportedEntityTypes, "INSERT_LIMIT");
+          break;
+        }
+        processEntity(be, nextMatrix, depth + 1, insertStack);
+      }
+      insertStack.delete(insert.name);
+      return;
+    }
+
+    if (ignoredRenderableTypes.has(entity.type)) {
+      skippedNonGeometry += 1;
+      return;
+    }
+    pushTypeCount(unsupportedEntityTypes, entity.type);
+    skippedNonGeometry += 1;
+  }
+
+  const rootMatrix = [scale, 0, 0, scale, 0, 0];
+  entities.forEach((entity) => {
+    const before = segments.length;
+    processEntity(entity, rootMatrix, 0, new Set());
+    if (segments.length > before && entity.type === "INSERT") {
+      expandedBlockSegments += segments.length - before;
+    }
+  });
+
+  const detectedSummary = formatTypeCount(detectedEntityTypes);
+  if (detectedSummary) {
+    warnings.push(`Detected entity types: ${detectedSummary}`);
+  }
+  const unsupportedSummary = formatTypeCount(unsupportedEntityTypes);
+  if (unsupportedSummary) {
+    warnings.push(`Unsupported entities ignored: ${unsupportedSummary}`);
+  }
+  const ignored3dSummary = formatTypeCount(ignored3dEntityTypes);
+  if (ignored3dSummary) {
+    warnings.push(`Ignored 3D POLYLINE entities: ${ignored3dSummary}`);
+  }
+  const malformedSummary = formatTypeCount(malformedEntityTypes);
+  if (malformedSummary) {
+    warnings.push(`Malformed entities skipped: ${malformedSummary}`);
+  }
+  const unsupportedArcTransformSummary = formatTypeCount(unsupportedArcTransformTypes);
+  if (unsupportedArcTransformSummary) {
+    warnings.push(`Arcs skipped after non-uniform INSERT transform: ${unsupportedArcTransformSummary}`);
   }
   warnings.push(`Skipped ${skippedNonGeometry} non-geometry entities`);
-  if (skippedMixedBlocks > 0) {
-    warnings.push(`Skipped ${skippedMixedBlocks} mixed-content blocks`);
+  warnings.push(`Extracted ${segments.length} contour segments for contour building.`);
+  if (legacyMeshPolylineCount > 0) {
+    warnings.push(`Used legacy mesh POLYLINE fallback on ${legacyMeshPolylineCount} entities (flattened to 2D).`);
+  }
+  if (insertCycleSkips > 0) {
+    warnings.push(`Skipped ${insertCycleSkips} INSERT references due to cyclic block links.`);
+  }
+  if (insertDepthSkips > 0) {
+    warnings.push(`Skipped ${insertDepthSkips} INSERT references due to max nesting depth ${maxInsertDepth}.`);
+  }
+  if (insertExpansionLimitHits > 0) {
+    warnings.push(`INSERT expansion limit reached (${maxInsertExpansions}); extra nested entities were skipped.`);
   }
 
   if (segments.length === 0) {
-    errors.push("No supported entities found in ENTITIES. Supported: LINE, ARC.");
+    errors.push("No supported contour geometry found. Supported: LINE, ARC, LWPOLYLINE, POLYLINE(2D), SPLINE(approximated).");
+    const regionCount = detectedEntityTypes.get("REGION") || 0;
+    if (regionCount > 0) {
+      errors.push("DXF geometry is stored as REGION/ACIS solids. This parser currently requires exploded 2D edges.");
+    }
   }
 
   return {
@@ -530,12 +965,22 @@ export function parseDxf(text, unitOverride = "auto") {
       pairCount: pairs.length,
       entityCount: entities.length,
       parsedSegments: segments.length,
-      skippedSegments: skippedNonGeometry + skippedMalformed,
+      skippedSegments: skippedNonGeometry + skippedMalformed + skipped3dEntities,
       skippedNonGeometry,
       skippedMalformed,
+      skipped3dEntities,
       blockCount: blocks.size,
-      skippedMixedBlocks,
-      expandedBlockSegments
+      blockReferenceCount,
+      expandedBlockSegments,
+      splineApproximationCount,
+      legacyMeshPolylineCount,
+      insertCycleSkips,
+      insertDepthSkips,
+      insertMissingBlockSkips,
+      insertExpansionLimitHits,
+      detectedEntityTypes: Object.fromEntries(detectedEntityTypes.entries()),
+      unsupportedEntityTypes: Object.fromEntries(unsupportedEntityTypes.entries()),
+      malformedEntityTypes: Object.fromEntries(malformedEntityTypes.entries())
     }
   };
 }
