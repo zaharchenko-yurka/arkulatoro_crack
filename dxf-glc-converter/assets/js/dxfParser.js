@@ -1,4 +1,5 @@
 import { resolveUnitScale } from "./unitConverter.js";
+import { splineEntityToSegments } from "./splineProcessor.js";
 
 function splitPairs(text) {
   const normalized = text.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
@@ -576,137 +577,16 @@ function parsePolylineEntity(entity) {
   };
 }
 
-function basisFunction(i, k, t, knots, memo) {
-  const key = `${i}:${k}:${t.toFixed(12)}`;
-  if (memo.has(key)) {
-    return memo.get(key);
-  }
-  let result = 0;
-  if (k === 0) {
-    const ki = knots[i];
-    const ki1 = knots[i + 1];
-    result = ki <= t && t < ki1 ? 1 : 0;
-  } else {
-    const denom1 = knots[i + k] - knots[i];
-    const denom2 = knots[i + k + 1] - knots[i + 1];
-    const term1 = denom1 === 0 ? 0 : ((t - knots[i]) / denom1) * basisFunction(i, k - 1, t, knots, memo);
-    const term2 = denom2 === 0 ? 0 : ((knots[i + k + 1] - t) / denom2) * basisFunction(i + 1, k - 1, t, knots, memo);
-    result = term1 + term2;
-  }
-  memo.set(key, result);
-  return result;
-}
-
-function evaluateSplinePoint(controlPoints, knots, degree, t) {
-  const memo = new Map();
-  let x = 0;
-  let y = 0;
-  for (let i = 0; i < controlPoints.length; i += 1) {
-    const b = basisFunction(i, degree, t, knots, memo);
-    x += controlPoints[i].x * b;
-    y += controlPoints[i].y * b;
-  }
-  return { x, y };
-}
-
-function segmentsFromPolylinePoints(points) {
-  const out = [];
-  if (points.length < 2) {
-    return out;
-  }
-  for (let i = 0; i < points.length - 1; i += 1) {
-    const a = points[i];
-    const b = points[i + 1];
-    if (Math.hypot(b.x - a.x, b.y - a.y) <= 1e-9) {
-      continue;
-    }
-    out.push({
-      type: "line",
-      start: { x: a.x, y: a.y },
-      end: { x: b.x, y: b.y }
-    });
-  }
-  return out;
-}
-
-function parseSplineEntity(entity, toleranceMmInEntityUnits = 0.1) {
-  const knots = [];
-  const controlPoints = [];
-  const fitPoints = [];
-  let degree = 3;
-  let currentControlIdx = -1;
-  let currentFitIdx = -1;
-
-  entity.forEach((row) => {
-    const value = row.value.trim();
-    if (row.code === 71) {
-      const parsed = Number.parseInt(value, 10);
-      if (Number.isFinite(parsed) && parsed >= 1) {
-        degree = parsed;
-      }
-      return;
-    }
-    if (row.code === 40) {
-      const k = Number.parseFloat(value);
-      if (Number.isFinite(k)) {
-        knots.push(k);
-      }
-      return;
-    }
-    if (row.code === 10) {
-      const x = Number.parseFloat(value);
-      controlPoints.push({ x, y: Number.NaN });
-      currentControlIdx = controlPoints.length - 1;
-      return;
-    }
-    if (row.code === 20 && currentControlIdx >= 0) {
-      controlPoints[currentControlIdx].y = Number.parseFloat(value);
-      return;
-    }
-    if (row.code === 11) {
-      const x = Number.parseFloat(value);
-      fitPoints.push({ x, y: Number.NaN });
-      currentFitIdx = fitPoints.length - 1;
-      return;
-    }
-    if (row.code === 21 && currentFitIdx >= 0) {
-      fitPoints[currentFitIdx].y = Number.parseFloat(value);
-    }
+function parseSplineEntity(entity, scaleToMm) {
+  const unit = Math.max(scaleToMm, 1e-9);
+  return splineEntityToSegments(entity, {
+    adaptiveError: 3 / unit,
+    maxArcDeviation: 5 / unit,
+    targetSegmentLength: 400 / unit,
+    minSegmentLength: 350 / unit,
+    maxSegmentLength: 450 / unit,
+    maxArcRadiusForProduction: 30000 / unit
   });
-
-  const cleanFitPoints = fitPoints.filter((p) => Number.isFinite(p.x) && Number.isFinite(p.y));
-  if (cleanFitPoints.length >= 2) {
-    return segmentsFromPolylinePoints(cleanFitPoints);
-  }
-
-  const cleanControl = controlPoints.filter((p) => Number.isFinite(p.x) && Number.isFinite(p.y));
-  if (cleanControl.length < 2) {
-    return [];
-  }
-
-  const neededKnots = cleanControl.length + degree + 1;
-  if (knots.length < neededKnots) {
-    return segmentsFromPolylinePoints(cleanControl);
-  }
-
-  const startT = knots[degree];
-  const endT = knots[knots.length - degree - 1];
-  if (!Number.isFinite(startT) || !Number.isFinite(endT) || endT <= startT) {
-    return segmentsFromPolylinePoints(cleanControl);
-  }
-
-  let controlPolylineLength = 0;
-  for (let i = 0; i < cleanControl.length - 1; i += 1) {
-    controlPolylineLength += Math.hypot(cleanControl[i + 1].x - cleanControl[i].x, cleanControl[i + 1].y - cleanControl[i].y);
-  }
-  const tol = Math.max(1e-6, toleranceMmInEntityUnits);
-  const sampleCount = Math.max(16, Math.min(512, Math.ceil(controlPolylineLength / tol)));
-  const points = [];
-  for (let i = 0; i <= sampleCount; i += 1) {
-    const t = i === sampleCount ? endT - 1e-12 : startT + ((endT - startT) * i) / sampleCount;
-    points.push(evaluateSplinePoint(cleanControl, knots, degree, t));
-  }
-  return segmentsFromPolylinePoints(points);
 }
 
 function pushTypeCount(map, key, amount = 1) {
@@ -757,6 +637,18 @@ export function parseDxf(text, unitOverride = "auto") {
   let insertDepthSkips = 0;
   let insertMissingBlockSkips = 0;
   let insertExpansionLimitHits = 0;
+  const splineStats = {
+    sourcePointCount: 0,
+    selectedArcCount: 0,
+    selectedLineCount: 0,
+    totalOutputSegments: 0,
+    maxArcResidualMm: 0,
+    maxLineDeviationMm: 0,
+    minSegmentLengthMm: Infinity,
+    maxSegmentLengthMm: 0,
+    avgSegmentLengthMmAcc: 0,
+    avgSegmentLengthMmCount: 0
+  };
 
   function pushSegment(segment, matrix, sourceType) {
     const transformed = transformSegment(segment, matrix);
@@ -820,12 +712,40 @@ export function parseDxf(text, unitOverride = "auto") {
       return;
     }
     if (entity.type === "SPLINE") {
-      const toleranceInEntityUnits = Math.max(1e-6, 0.1 / Math.max(scale, 1e-9));
-      const splineSegments = parseSplineEntity(entity.rows, toleranceInEntityUnits);
+      const splineResult = parseSplineEntity(entity.rows, scale);
+      const splineSegments = splineResult.segments;
       if (splineSegments.length === 0) {
         pushTypeCount(malformedEntityTypes, "SPLINE");
         skippedMalformed += 1;
         return;
+      }
+      if (splineResult.debug) {
+        splineStats.sourcePointCount += splineResult.debug.sourcePointCount || 0;
+        splineStats.selectedArcCount += splineResult.debug.selectedArcCount || 0;
+        splineStats.selectedLineCount += splineResult.debug.selectedLineCount || 0;
+        splineStats.totalOutputSegments += splineSegments.length;
+        splineStats.maxArcResidualMm = Math.max(
+          splineStats.maxArcResidualMm,
+          (splineResult.debug.maxArcResidual || 0) * scale
+        );
+        splineStats.maxLineDeviationMm = Math.max(
+          splineStats.maxLineDeviationMm,
+          (splineResult.debug.maxLineDeviation || 0) * scale
+        );
+        if (Number.isFinite(splineResult.debug.minSegmentLength) && splineResult.debug.minSegmentLength > 0) {
+          splineStats.minSegmentLengthMm = Math.min(
+            splineStats.minSegmentLengthMm,
+            splineResult.debug.minSegmentLength * scale
+          );
+        }
+        splineStats.maxSegmentLengthMm = Math.max(
+          splineStats.maxSegmentLengthMm,
+          (splineResult.debug.maxSegmentLength || 0) * scale
+        );
+        if (Number.isFinite(splineResult.debug.avgSegmentLength) && splineResult.debug.avgSegmentLength > 0) {
+          splineStats.avgSegmentLengthMmAcc += splineResult.debug.avgSegmentLength * scale;
+          splineStats.avgSegmentLengthMmCount += 1;
+        }
       }
       splineApproximationCount += 1;
       splineSegments.forEach((seg) => pushSegment(seg, matrix, "SPLINE"));
@@ -945,6 +865,16 @@ export function parseDxf(text, unitOverride = "auto") {
   if (insertExpansionLimitHits > 0) {
     warnings.push(`INSERT expansion limit reached (${maxInsertExpansions}); extra nested entities were skipped.`);
   }
+  if (splineApproximationCount > 0) {
+    const minSeg = Number.isFinite(splineStats.minSegmentLengthMm) ? splineStats.minSegmentLengthMm.toFixed(1) : "0.0";
+    const maxSeg = splineStats.maxSegmentLengthMm.toFixed(1);
+    const avgSeg = splineStats.avgSegmentLengthMmCount > 0
+      ? (splineStats.avgSegmentLengthMmAcc / splineStats.avgSegmentLengthMmCount).toFixed(1)
+      : "0.0";
+    warnings.push(
+      `SPLINE stats: entities=${splineApproximationCount}, arcs=${splineStats.selectedArcCount}, lines=${splineStats.selectedLineCount}, segmentLen(mm) min/avg/max=${minSeg}/${avgSeg}/${maxSeg}.`
+    );
+  }
 
   if (segments.length === 0) {
     errors.push("No supported contour geometry found. Supported: LINE, ARC, LWPOLYLINE, POLYLINE(2D), SPLINE(approximated).");
@@ -978,6 +908,23 @@ export function parseDxf(text, unitOverride = "auto") {
       insertDepthSkips,
       insertMissingBlockSkips,
       insertExpansionLimitHits,
+      splineStats: {
+        sourcePointCount: splineStats.sourcePointCount,
+        outputSegments: splineStats.totalOutputSegments,
+        arcs: splineStats.selectedArcCount,
+        lines: splineStats.selectedLineCount,
+        maxArcResidualMm: Number(splineStats.maxArcResidualMm.toFixed(3)),
+        maxLineDeviationMm: Number(splineStats.maxLineDeviationMm.toFixed(3)),
+        minSegmentLengthMm: Number((Number.isFinite(splineStats.minSegmentLengthMm) ? splineStats.minSegmentLengthMm : 0).toFixed(3)),
+        avgSegmentLengthMm: Number(
+          (
+            splineStats.avgSegmentLengthMmCount > 0
+              ? splineStats.avgSegmentLengthMmAcc / splineStats.avgSegmentLengthMmCount
+              : 0
+          ).toFixed(3)
+        ),
+        maxSegmentLengthMm: Number(splineStats.maxSegmentLengthMm.toFixed(3))
+      },
       detectedEntityTypes: Object.fromEntries(detectedEntityTypes.entries()),
       unsupportedEntityTypes: Object.fromEntries(unsupportedEntityTypes.entries()),
       malformedEntityTypes: Object.fromEntries(malformedEntityTypes.entries())
