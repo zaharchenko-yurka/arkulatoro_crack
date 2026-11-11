@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="uk">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Стенд калькулятора контуру стелі</title>
+  <link rel="stylesheet" href="../assets/ccc.css">
+  <style>
+    body {
+      margin: 0;
+      padding: 18px;
+      background: #eef2ee;
+      font-family: "Segoe UI", Tahoma, sans-serif;
+    }
+    .stand-wrap {
+      max-width: 1320px;
+      margin: 0 auto;
+    }
+    .stand-note {
+      margin: 0 0 14px;
+      color: #5e6c63;
+      font-size: 13px;
+    }
+    .stand-second {
+      margin-top: 30px;
+    }
+    @media (prefers-color-scheme: dark) {
+      body {
+        background: #0d120f;
+        color: #dce7df;
+      }
+      .stand-note {
+        color: #9fb0a5;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="stand-wrap">
+    <p class="stand-note">Тестовий стенд: імітує вивід шорткоду <code>[ceiling_contour]</code>. Другий калькулятор нижче перевіряє ізоляцію екземплярів.</p>
+
+    <div class="ccc-root" data-ccc-root data-unit="cm" data-rows="12" data-tol="3" data-sigma="3" data-title="Калькулятор контуру стелі">
+      <noscript><div class="ccc-panel"><p class="ccc-msg ccc-msg-error">Для роботи калькулятора потрібно увімкнути JavaScript у браузері.</p></div></noscript>
+    </div>
+
+    <div class="ccc-root stand-second" data-ccc-root data-unit="mm" data-rows="3" data-tol="3" data-sigma="3" data-title="Другий калькулятор">
+      <noscript><div class="ccc-panel"><p class="ccc-msg ccc-msg-error">Для роботи калькулятора потрібно увімкнути JavaScript у браузері.</p></div></noscript>
+    </div>
+  </div>
+  <script src="../assets/ccc-core.js"></script>
+  <script src="../assets/ccc-ui.js"></script>
+</body>
+</html>
