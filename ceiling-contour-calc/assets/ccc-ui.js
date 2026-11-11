@@ -22,37 +22,23 @@
     '    </div>' +
     '  </header>' +
 
-    '  <details class="ccc-help">' +
-    '    <summary>Як міряти — коротка інструкція для замірщика</summary>' +
-    '    <div class="ccc-help-body">' +
-    '      <div class="ccc-help-text">' +
-    '        <ol>' +
-    '          <li>Виберіть <b>два сусідні кути кімнати на одній стіні</b>: A і B. Стоячи в кімнаті лицем до стіни, <b>A — ліворуч, B — праворуч</b>. Виміряйте AB по лінії стелі. Чим довша база AB відносно фігури, тим точніше.</li>' +
-    '          <li>Маркером поставте точки по контуру вставки та пронумеруйте їх по колу в будь-якому напрямку. На прямих достатньо точок на початку й у кінці; <b>на кожному гострому куті — обов’язково</b>; на кожній дузі — початок, кінець і <b>мінімум одна проміжна</b> (краще 2–3, на складній кривій кожні 20–40 см); на стику прямої та дуги — обов’язково.</li>' +
-    '          <li>Для кожної точки виміряйте рулеткою в площині стелі відстань <b>від A</b> і <b>від B</b>. Більше нічого вимірювати не потрібно.</li>' +
-    '          <li>Для контролю якості можна додати третій кут C (будь-який кут кімнати поза лінією AB, зазвичай протилежний): виміряйте AC і BC, а для кожної точки — відстань від C.</li>' +
-    '          <li>У таблиці позначте <b>«Кут»</b> для гострого зламу контуру та <b>«Пряма →»</b> для прямої ділянки до наступної точки. Хорду заповнюйте за бажанням — це контрольний замір між сусідніми точками.</li>' +
-    '        </ol>' +
-    '      </div>' +
-    '      <div class="ccc-help-figure" aria-hidden="true">' +
-    '        <svg viewBox="0 0 320 220" role="presentation">' +
-    '          <rect x="20" y="24" width="280" height="170" rx="4" fill="none" stroke="#9db3a5" stroke-width="2"/>' +
-    '          <line x1="20" y1="24" x2="300" y2="24" stroke="#b26d00" stroke-width="4"/>' +
-    '          <text x="10" y="18" font-size="16" fill="#2f6d4e" font-family="Segoe UI, Tahoma, sans-serif">A</text>' +
-    '          <text x="304" y="18" font-size="16" fill="#2f6d4e" font-family="Segoe UI, Tahoma, sans-serif">B</text>' +
-    '          <path d="M70 105 C110 55, 205 60, 250 100 C275 125, 240 175, 175 180 C105 185, 55 155, 70 105 Z" fill="#edf7f1" stroke="#2f6d4e" stroke-width="2.5"/>' +
-    '          <circle cx="163" cy="120" r="4.5" fill="#2f6d4e"/>' +
-    '          <text x="170" y="116" font-size="14" fill="#1f2a24" font-family="Segoe UI, Tahoma, sans-serif">P</text>' +
-    '          <line x1="163" y1="120" x2="20" y2="24" stroke="#2f6d4e" stroke-width="1.6" stroke-dasharray="5 4"/>' +
-    '          <line x1="163" y1="120" x2="300" y2="24" stroke="#2f6d4e" stroke-width="1.6" stroke-dasharray="5 4"/>' +
-    '          <text x="74" y="69" font-size="13" fill="#5e6c63" font-family="Segoe UI, Tahoma, sans-serif">dA</text>' +
-    '          <text x="225" y="69" font-size="13" fill="#5e6c63" font-family="Segoe UI, Tahoma, sans-serif">dB</text>' +
-    '          <text x="150" y="14" font-size="13" fill="#b26d00" font-family="Segoe UI, Tahoma, sans-serif">стіна AB</text>' +
-    '          <text x="112" y="210" font-size="12" fill="#5e6c63" font-family="Segoe UI, Tahoma, sans-serif">кімната — під стіною</text>' +
-    '        </svg>' +
-    '      </div>' +
-    '    </div>' +
-    '  </details>' +
+'  <details class="ccc-help">' +
+'    <summary>Як міряти — коротка пам’ятка</summary>' +
+'    <div class="ccc-help-body">' +
+'      <ol>' +
+'        <li>Станьте в кімнаті <b>лицем до однієї стіни</b>. Кут зліва — це <b>A</b>, кут справа — <b>B</b>. Виміряйте <b>AB</b> вздовж стелі.</li>' +
+'        <li>Ідіть по краю вставки <b>по колу</b>, ставте маркером точки й підпишіть <b>1, 2, 3…</b></li>' +
+'        <li>Від <b>кожної</b> точки виміряйте відстань <b>до A</b> і <b>до B</b>. Більше нічого міряти не треба.</li>' +
+'        <li>Запишіть у таблицю.</li>' +
+'        <li>Від руки намалюйте <b>ескіз контуру</b> з літерами A, B і номерами точок. Сфотографуйте його й надішліть разом із таблицею.</li>' +
+'      </ol>' +
+'      <p><b>Скільки точок:</b> у кожному куті — обов’язково; на прямій — на початку й у кінці; на кривій — приблизно через кожні 30 см (де крива закручена сильніше — частіше, де майже пряма — рідше); де пряма переходить у криву — обов’язково.</p>' +
+'      <p class="ccc-help-imgs">' +
+'        __CCC_HELP_IMAGES__' +
+'      </p>' +
+
+'    </div>' +
+'  </details>' +
 
     '  <div class="ccc-layout">' +
     '    <section class="ccc-panel ccc-controls" aria-label="Дані замірів">' +
@@ -150,6 +136,26 @@
     } else {
       fn();
     }
+  }
+
+  function escapeAttr(value) {
+    return String(value === null || value === undefined ? "" : value)
+      .replace(/&/g, "&amp;")
+      .replace(/"/g, "&quot;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;");
+  }
+
+  function helpImagesHtml(img1, img2) {
+    if (!img1 || !img2) return "";
+    return (
+      '<a href="' + escapeAttr(img1) + '" target="_blank" rel="noopener">' +
+        '<img src="' + escapeAttr(img1) + '" alt="Пам’ятка 1/2: схема замірів" loading="lazy">' +
+      "</a>" +
+      '<a href="' + escapeAttr(img2) + '" target="_blank" rel="noopener">' +
+        '<img src="' + escapeAttr(img2) + '" alt="Пам’ятка 2/2: куди ставити точки і таблиця" loading="lazy">' +
+      "</a>"
+    );
   }
 
   function clamp(v, lo, hi) {
@@ -252,8 +258,13 @@
   }
 
   function initRoot(root, index) {
+    var IMG1 = root.getAttribute("data-img1") || "";
+    var IMG2 = root.getAttribute("data-img2") || "";
     if (!root.querySelector(".ccc-app")) {
-      root.insertAdjacentHTML("beforeend", TEMPLATE);
+      root.insertAdjacentHTML(
+        "beforeend",
+        TEMPLATE.replace("__CCC_HELP_IMAGES__", helpImagesHtml(IMG1, IMG2))
+      );
     }
     var els = {};
     root.querySelectorAll("[data-ccc-el]").forEach(function (el) {

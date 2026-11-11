@@ -173,6 +173,8 @@ function ccc_shortcode($atts)
         'data-tol'       => (string) $tol,
         'data-sigma'     => (string) $sigma,
         'data-title'     => $title,
+        'data-img1'      => CCC_PLUGIN_URL . 'assets/pamyatka_zamiry_1z2.jpg',
+        'data-img2'      => CCC_PLUGIN_URL . 'assets/pamyatka_zamiry_2z2.jpg',
     );
 
     $attr_html = '';

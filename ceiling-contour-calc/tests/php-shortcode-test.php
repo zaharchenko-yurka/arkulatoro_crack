@@ -205,6 +205,14 @@ check(strpos($html, 'data-ccc-root') !== false, 'shortcode outputs the root cont
 check(strpos($html, 'class="ccc-root"') !== false, 'root uses its own ccc- prefix');
 check(strpos($html, 'data-unit="cm"') !== false, 'default unit is cm');
 check(strpos($html, 'data-rows="12"') !== false, 'default rows = 12');
+check(
+    strpos($html, 'data-img1="https://example.test/wp-content/plugins/ceiling-contour-calc/assets/pamyatka_zamiry_1z2.jpg"') !== false,
+    'instruction image 1 URL is passed from PHP'
+);
+check(
+    strpos($html, 'data-img2="https://example.test/wp-content/plugins/ceiling-contour-calc/assets/pamyatka_zamiry_2z2.jpg"') !== false,
+    'instruction image 2 URL is passed from PHP'
+);
 check(strpos($html, '<noscript>') !== false, 'noscript fallback is present');
 check(strpos($html, 'JavaScript') !== false, 'noscript message is in Ukrainian');
 
